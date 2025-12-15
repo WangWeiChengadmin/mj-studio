@@ -7,6 +7,11 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui', 'nuxt-auth-utils'],
   css: ['~/assets/css/main.css'],
 
+  // 默认使用 dark 模式
+  colorMode: {
+    preference: 'dark',
+  },
+
   // 禁用 Google Fonts 避免网络问题
   icon: {
     provider: 'iconify',

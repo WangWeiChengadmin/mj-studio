@@ -72,6 +72,8 @@ onUnmounted(() => {
 
         <!-- 用户信息 -->
         <div class="flex items-center gap-4">
+          <!-- 颜色模式切换 -->
+          <UColorModeButton />
           <NuxtLink to="/settings" class="text-white/60 hover:text-white transition-colors">
             <UIcon name="i-heroicons-cog-6-tooth" class="w-5 h-5" />
           </NuxtLink>

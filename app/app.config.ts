@@ -9,5 +9,9 @@ export default defineAppConfig({
       error: 'red',
       neutral: 'zinc',
     },
+    // Modal 遮罩背景改为深色
+    modal: {
+      overlay: 'bg-black/70 backdrop-blur-sm',
+    },
   },
 })

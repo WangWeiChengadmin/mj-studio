@@ -149,6 +149,20 @@ function confirmDelete() {
   emit('remove')
 }
 
+// 查看大图
+const showImagePreview = ref(false)
+
+function handleImageClick() {
+  if (isBlurred.value) {
+    toggleBlur(false)
+  } else {
+    showImagePreview.value = true
+  }
+}
+
+// 任务详情
+const showTaskDetail = ref(false)
+
 // 下载图片
 function downloadImage() {
   if (!props.task.imageUrl) return
@@ -170,7 +184,7 @@ function downloadImage() {
         :alt="task.prompt ?? ''"
         class="w-full h-full object-contain cursor-pointer transition-all duration-300"
         :class="isBlurred ? 'blur-xl scale-105' : ''"
-        @click="toggleBlur(false)"
+        @click="handleImageClick"
       />
       <div
         v-else
@@ -244,6 +258,14 @@ function downloadImage() {
         >
           <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 text-white" />
         </button>
+        <!-- 详情按钮 -->
+        <button
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+          title="详情"
+          @click="showTaskDetail = true"
+        >
+          <UIcon name="i-heroicons-information-circle" class="w-4 h-4 text-white" />
+        </button>
         <!-- 删除按钮 -->
         <button
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-red-500/70 transition-colors"
@@ -310,6 +332,89 @@ function downloadImage() {
             <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
             <UButton color="error" @click="confirmDelete">删除</UButton>
           </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- 任务详情 Modal -->
+    <UModal v-model:open="showTaskDetail">
+      <template #content>
+        <div class="p-6">
+          <h3 class="text-lg font-medium text-(--ui-text) mb-4">任务详情</h3>
+          <div class="space-y-3 text-sm">
+            <div class="flex justify-between">
+              <span class="text-(--ui-text-muted)">任务ID</span>
+              <span class="font-mono text-(--ui-text)">{{ taskSqid }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-(--ui-text-muted)">上游</span>
+              <span class="text-(--ui-text)">{{ task.modelConfig?.name || '未知' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-(--ui-text-muted)">模型类型</span>
+              <span class="text-(--ui-text)">{{ modelInfo.label }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-(--ui-text-muted)">任务类型</span>
+              <span class="text-(--ui-text)">{{ task.type === 'blend' ? '图片混合' : '文生图' }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-(--ui-text-muted)">状态</span>
+              <span :class="statusInfo.color">{{ statusInfo.text }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-(--ui-text-muted)">创建时间</span>
+              <span class="text-(--ui-text)">{{ new Date(task.createdAt).toLocaleString('zh-CN') }}</span>
+            </div>
+            <div v-if="duration" class="flex justify-between">
+              <span class="text-(--ui-text-muted)">耗时</span>
+              <span class="text-(--ui-text)">{{ duration }}</span>
+            </div>
+            <div v-if="task.upstreamTaskId" class="flex justify-between">
+              <span class="text-(--ui-text-muted)">上游任务ID</span>
+              <span class="font-mono text-xs text-(--ui-text)">{{ task.upstreamTaskId }}</span>
+            </div>
+            <div v-if="task.prompt">
+              <span class="text-(--ui-text-muted) block mb-1">提示词</span>
+              <p class="text-(--ui-text) bg-(--ui-bg-muted) rounded p-2 text-xs break-all">{{ task.prompt }}</p>
+            </div>
+            <div v-if="task.error">
+              <span class="text-(--ui-text-muted) block mb-1">错误信息</span>
+              <p class="text-red-400 bg-red-500/10 rounded p-2 text-xs break-all">{{ task.error }}</p>
+            </div>
+          </div>
+          <div class="mt-6 flex justify-end">
+            <UButton variant="outline" color="neutral" @click="showTaskDetail = false">关闭</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- 大图预览 Modal -->
+    <UModal v-model:open="showImagePreview" :ui="{ width: 'max-w-[90vw]' }">
+      <template #content>
+        <div class="relative bg-black">
+          <img
+            v-if="task.imageUrl"
+            :src="task.imageUrl"
+            :alt="task.prompt ?? ''"
+            class="w-full h-auto max-h-[90vh] object-contain"
+          />
+          <!-- 关闭按钮 -->
+          <button
+            class="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+            @click="showImagePreview = false"
+          >
+            <UIcon name="i-heroicons-x-mark" class="w-5 h-5 text-white" />
+          </button>
+          <!-- 下载按钮 -->
+          <button
+            class="absolute top-2 left-2 w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+            title="下载图片"
+            @click="downloadImage"
+          >
+            <UIcon name="i-heroicons-arrow-down-tray" class="w-5 h-5 text-white" />
+          </button>
         </div>
       </template>
     </UModal>
