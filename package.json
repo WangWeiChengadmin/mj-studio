@@ -17,6 +17,7 @@
     "drizzle-orm": "^0.45.1",
     "nuxt": "^4.2.2",
     "nuxt-auth-utils": "^0.5.26",
+    "sqids": "^0.3.0",
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
@@ -27,6 +28,8 @@
     "vitest": "^4.0.15"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["better-sqlite3"]
+    "onlyBuiltDependencies": [
+      "better-sqlite3"
+    ]
   }
 }

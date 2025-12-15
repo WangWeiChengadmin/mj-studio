@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
+import { encodeTaskId } from '~/utils/sqids'
 
 const props = defineProps<{
   task: Task
@@ -12,6 +13,28 @@ const emit = defineEmits<{
 }>()
 
 const isActioning = ref(false)
+
+const toast = useToast()
+
+// 任务ID（编码后的短字符串）
+const taskSqid = computed(() => encodeTaskId(props.task.id))
+
+// 复制任务ID
+async function copyTaskId() {
+  try {
+    await navigator.clipboard.writeText(taskSqid.value)
+    toast.add({ title: '已复制', description: `ID:${taskSqid.value}`, color: 'success' })
+  } catch {
+    // fallback for older browsers
+    const textarea = document.createElement('textarea')
+    textarea.value = taskSqid.value
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    toast.add({ title: '已复制', description: `ID:${taskSqid.value}`, color: 'success' })
+  }
+}
 
 // 图片模糊状态（防窥屏）- 从任务数据初始化
 const isBlurred = ref(props.task.isBlurred ?? true)
@@ -215,9 +238,16 @@ function downloadImage() {
 
     <!-- 信息区 -->
     <div class="p-4">
-      <!-- 时间信息 -->
+      <!-- 任务ID和时间信息 -->
       <div class="flex items-center justify-between text-white/40 text-xs mb-2">
-        <span>{{ formatTime(task.createdAt) }}</span>
+        <div class="flex items-center gap-2">
+          <span
+            class="font-mono bg-white/10 px-1.5 py-0.5 rounded cursor-pointer hover:bg-white/20 select-none"
+            title="点击复制"
+            @click="copyTaskId"
+          >ID:{{ taskSqid }}</span>
+          <span>{{ formatTime(task.createdAt) }}</span>
+        </div>
         <span v-if="duration">耗时 {{ duration }}</span>
       </div>
 

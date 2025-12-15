@@ -23,6 +23,9 @@ importers:
       nuxt-auth-utils:
         specifier: ^0.5.26
         version: 0.5.26(magicast@0.5.1)
+      sqids:
+        specifier: ^0.3.0
+        version: 0.3.0
       tailwindcss:
         specifier: ^4.1.18
         version: 4.1.18
@@ -3843,6 +3846,9 @@ packages:
   speakingurl@14.0.1:
     resolution: {integrity: sha512-1POYv7uv2gXoyGFpBCmpDVSNV74IfsWlDW216UPjbWufNf+bSU6GdbDsxdcxtfwb4xlI3yxzOTKClUosxARYrQ==}
     engines: {node: '>=0.10.0'}
+
+  sqids@0.3.0:
+    resolution: {integrity: sha512-lOQK1ucVg+W6n3FhRwwSeUijxe93b51Bfz5PMRMihVf1iVkl82ePQG7V5vwrhzB11v0NtsR25PSZRGiSomJaJw==}
 
   srvx@0.9.8:
     resolution: {integrity: sha512-RZaxTKJEE/14HYn8COLuUOJAt0U55N9l1Xf6jj+T0GoA01EUH1Xz5JtSUOI+EHn+AEgPCVn7gk6jHJffrr06fQ==}
@@ -8461,6 +8467,8 @@ snapshots:
   source-map@0.7.6: {}
 
   speakingurl@14.0.1: {}
+
+  sqids@0.3.0: {}
 
   srvx@0.9.8: {}
 
