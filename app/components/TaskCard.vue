@@ -13,31 +13,47 @@ const emit = defineEmits<{
 
 const isActioning = ref(false)
 
+// 图片模糊状态（防窥屏）- 从任务数据初始化
+const isBlurred = ref(props.task.isBlurred ?? true)
+
+// 切换模糊状态并同步到后端
+async function toggleBlur(blur: boolean) {
+  isBlurred.value = blur
+  try {
+    await $fetch(`/api/tasks/${props.task.id}/blur`, {
+      method: 'PATCH',
+      body: { isBlurred: blur },
+    })
+  } catch (error) {
+    console.error('保存模糊状态失败:', error)
+  }
+}
+
 // 获取状态显示
 const statusInfo = computed(() => {
   switch (props.task.status) {
     case 'pending':
-      return { text: '等待中', color: 'text-yellow-400', icon: 'i-heroicons-clock', spin: false }
+      return { text: '等待中', color: 'text-yellow-400', icon: 'i-heroicons-clock', showBars: false }
     case 'submitting':
-      return { text: '提交中', color: 'text-orange-400', icon: 'i-heroicons-arrow-up-tray', spin: true }
+      return { text: '提交中', color: 'text-orange-400', icon: null, showBars: true }
     case 'processing':
-      return { text: props.task.progress || '生成中', color: 'text-blue-400', icon: 'i-heroicons-arrow-path', spin: true }
+      return { text: props.task.progress || '生成中', color: 'text-blue-400', icon: null, showBars: true }
     case 'success':
-      return { text: '已完成', color: 'text-green-400', icon: 'i-heroicons-check-circle', spin: false }
+      return { text: '已完成', color: 'text-green-400', icon: 'i-heroicons-check-circle', showBars: false }
     case 'failed':
-      return { text: '失败', color: 'text-red-400', icon: 'i-heroicons-x-circle', spin: false }
+      return { text: '失败', color: 'text-red-400', icon: 'i-heroicons-x-circle', showBars: false }
     default:
-      return { text: '未知', color: 'text-gray-400', icon: 'i-heroicons-question-mark-circle', spin: false }
+      return { text: '未知', color: 'text-gray-400', icon: 'i-heroicons-question-mark-circle', showBars: false }
   }
 })
 
 // 获取模型显示信息
 const modelInfo = computed(() => {
-  const config = props.task.modelConfig
   const modelType = props.task.modelType
 
+  // 优先按模型类型显示，而非上游配置名称
   return {
-    label: config?.name || (modelType === 'gemini' ? 'Gemini' : 'MJ'),
+    label: modelType === 'gemini' ? 'Gemini' : 'MJ',
     type: modelType,
     color: modelType === 'gemini' ? 'bg-blue-500/80' : 'bg-purple-500/80'
   }
@@ -124,18 +140,38 @@ function downloadImage() {
         v-if="task.imageUrl"
         :src="task.imageUrl"
         :alt="task.prompt ?? ''"
-        class="w-full h-full object-contain"
+        class="w-full h-full object-contain cursor-pointer transition-all duration-300"
+        :class="isBlurred ? 'blur-xl scale-105' : ''"
+        @click="toggleBlur(false)"
       />
       <div
         v-else
         class="w-full h-full flex items-center justify-center"
       >
         <div class="text-center">
+          <!-- 竖线加载动画 -->
+          <BarsLoader
+            v-if="statusInfo.showBars"
+            :class="['w-12 h-12 mb-2', statusInfo.color]"
+          />
+          <!-- 图标 -->
           <UIcon
+            v-else-if="statusInfo.icon"
             :name="statusInfo.icon"
-            :class="['w-12 h-12 mb-2', statusInfo.color, statusInfo.spin ? 'animate-spin' : '']"
+            :class="['w-12 h-12 mb-2', statusInfo.color]"
           />
           <p :class="['text-sm', statusInfo.color]">{{ statusInfo.text }}</p>
+        </div>
+      </div>
+
+      <!-- 点击提示（模糊状态） -->
+      <div
+        v-if="task.imageUrl && isBlurred"
+        class="absolute inset-0 flex items-center justify-center pointer-events-none"
+      >
+        <div class="bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 text-white/80 text-sm">
+          <UIcon name="i-heroicons-eye" class="w-4 h-4 inline mr-1" />
+          点击查看
         </div>
       </div>
 
@@ -147,15 +183,26 @@ function downloadImage() {
         <span :class="['text-xs', statusInfo.color]">{{ statusInfo.text }}</span>
       </div>
 
-      <!-- 下载按钮 -->
-      <button
-        v-if="task.imageUrl"
-        class="absolute top-2 left-2 p-2 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
-        title="下载图片"
-        @click="downloadImage"
-      >
-        <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 text-white" />
-      </button>
+      <!-- 左上角按钮组 -->
+      <div v-if="task.imageUrl" class="absolute top-2 left-2 flex gap-1">
+        <!-- 下载按钮 -->
+        <button
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+          title="下载图片"
+          @click="downloadImage"
+        >
+          <UIcon name="i-heroicons-arrow-down-tray" class="w-4 h-4 text-white" />
+        </button>
+        <!-- 恢复模糊按钮 -->
+        <button
+          v-if="!isBlurred"
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+          title="隐藏图片"
+          @click="toggleBlur(true)"
+        >
+          <UIcon name="i-heroicons-eye-slash" class="w-4 h-4 text-white" />
+        </button>
+      </div>
 
       <!-- 模型标签 -->
       <div

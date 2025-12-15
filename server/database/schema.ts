@@ -48,6 +48,7 @@ export const tasks = sqliteTable('tasks', {
   progress: text('progress'), // 进度，如 "50%"
   imageUrl: text('image_url'), // 生成的图片URL
   error: text('error'), // 错误信息
+  isBlurred: integer('is_blurred', { mode: 'boolean' }).notNull().default(true), // 图片模糊状态（防窥屏）
   buttons: text('buttons', { mode: 'json' }).$type<Array<{
     customId: string
     emoji: string

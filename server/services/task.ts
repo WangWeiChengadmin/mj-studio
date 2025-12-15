@@ -4,6 +4,7 @@ import { tasks, modelConfigs, type Task, type TaskStatus, type ModelConfig, type
 import { eq, desc, and } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
+import { downloadImage, saveBase64Image, getImageUrl } from './image'
 
 export function useTaskService() {
   // 创建任务（仅保存到数据库）
@@ -129,13 +130,22 @@ export function useTaskService() {
         return
       }
 
-      // Gemini直接返回base64图像，转换为data URL
-      const imageUrl = `data:${result.mimeType};base64,${result.imageBase64}`
+      // Gemini返回base64图像，保存到本地
+      const dataUrl = `data:${result.mimeType};base64,${result.imageBase64}`
+      const fileName = saveBase64Image(dataUrl)
+
+      if (!fileName) {
+        await updateTask(task.id, {
+          status: 'failed',
+          error: '保存图片到本地失败',
+        })
+        return
+      }
 
       await updateTask(task.id, {
         status: 'success',
         progress: '100%',
-        imageUrl,
+        imageUrl: getImageUrl(fileName),
       })
     } catch (error: any) {
       await updateTask(task.id, {
@@ -210,10 +220,20 @@ export function useTaskService() {
         status = 'processing'
       }
 
+      // 处理图片URL：成功时下载到本地
+      let imageUrl = mjTask.imageUrl || null
+      if (status === 'success' && imageUrl && !imageUrl.startsWith('/api/images/')) {
+        const fileName = await downloadImage(imageUrl)
+        if (fileName) {
+          imageUrl = getImageUrl(fileName)
+        }
+        // 下载失败时保留原始URL
+      }
+
       return await updateTask(taskId, {
         status,
         progress: mjTask.progress || null,
-        imageUrl: mjTask.imageUrl || null,
+        imageUrl,
         error: mjTask.failReason || null,
         buttons: mjTask.buttons || null,
       })
