@@ -279,9 +279,9 @@ export function useTaskService() {
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await gemini.generateImageWithRef(task.prompt ?? '', task.images, modelName)
+        result = await gemini.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id)
       } else {
-        result = await gemini.generateImage(task.prompt ?? '', modelName)
+        result = await gemini.generateImage(task.prompt ?? '', modelName, task.id)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
@@ -300,9 +300,9 @@ export function useTaskService() {
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName)
+        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id)
       } else {
-        result = await dalle.generateImage(task.prompt ?? '', modelName)
+        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
@@ -321,9 +321,9 @@ export function useTaskService() {
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await openai.generateImageWithRef(task.prompt ?? '', task.images, modelName)
+        result = await openai.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id)
       } else {
-        result = await openai.generateImage(task.prompt ?? '', modelName)
+        result = await openai.generateImage(task.prompt ?? '', modelName, task.id)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
@@ -341,9 +341,9 @@ export function useTaskService() {
     try {
       let result
       if (task.type === 'blend') {
-        result = await mj.blend(task.images ?? [])
+        result = await mj.blend(task.images ?? [], 'SQUARE', task.id)
       } else {
-        result = await mj.imagine(task.prompt ?? '', task.images ?? [])
+        result = await mj.imagine(task.prompt ?? '', task.images ?? [], task.id)
       }
 
       if (result.code !== 1) {
@@ -486,7 +486,7 @@ export function useTaskService() {
     const mj = createMJService(config.baseUrl, config.apiKey)
 
     try {
-      const result = await mj.action(parentTask.upstreamTaskId, customId)
+      const result = await mj.action(parentTask.upstreamTaskId, customId, newTask.id)
 
       if (result.code !== 1) {
         await updateTask(newTask.id, {

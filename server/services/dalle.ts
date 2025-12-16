@@ -1,8 +1,12 @@
 // DALL-E Images API 格式服务
 // 文生图: POST /v1/images/generations
-// 垫图:   POST /v1/images/edits (需中转站支持)
+// 垫图:
+//   - 默认: POST /v1/images/generations (JSON, image 为纯 base64)
+//   - 豆包: POST /v1/images/generations (JSON, image 为 data:image/...;base64,... 格式)
+//   - Flux: POST /v1/images/edits (multipart/form-data, image 为文件)
 
 import type { GenerateResult } from './types'
+import { logRequest, logResponse } from './logger'
 
 interface DalleResponse {
   created: number
@@ -13,6 +17,32 @@ interface DalleResponse {
   }>
 }
 
+// 判断是否为豆包模型
+function isDoubaoModel(modelName: string): boolean {
+  return modelName.toLowerCase().includes('doubao')
+}
+
+// 判断是否为 Flux 模型
+function isFluxModel(modelName: string): boolean {
+  return modelName.toLowerCase().includes('flux')
+}
+
+// 将 base64 data URL 转换为 Blob
+function dataUrlToBlob(dataUrl: string): Blob {
+  const match = dataUrl.match(/^data:(.+);base64,(.+)$/)
+  if (!match) {
+    throw new Error('Invalid data URL format')
+  }
+  const mimeType = match[1]
+  const base64Data = match[2]
+  const binaryString = atob(base64Data)
+  const bytes = new Uint8Array(binaryString.length)
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return new Blob([bytes], { type: mimeType })
+}
+
 // 工厂函数：根据配置创建DALL-E服务实例
 export function createDalleService(baseUrl: string, apiKey: string) {
   const headers = {
@@ -21,31 +51,36 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // 文生图
-  async function generateImage(prompt: string, modelName: string = 'dall-e-3'): Promise<GenerateResult> {
-    try {
-      console.log('[DALL-E] 请求URL:', `${baseUrl}/v1/images/generations`)
-      console.log('[DALL-E] 模型:', modelName)
+  async function generateImage(prompt: string, modelName: string = 'dall-e-3', taskId?: number): Promise<GenerateResult> {
+    const url = `${baseUrl}/v1/images/generations`
+    const body = {
+      model: modelName,
+      prompt,
+      n: 1,
+      size: '1024x1024',
+      response_format: 'url',
+    }
 
-      const response = await $fetch<DalleResponse>(`${baseUrl}/v1/images/generations`, {
+    // 记录请求
+    if (taskId) {
+      logRequest(taskId, { url, method: 'POST', headers, body })
+    }
+
+    try {
+      const response = await $fetch<DalleResponse>(url, {
         method: 'POST',
         headers,
-        body: {
-          model: modelName,
-          prompt,
-          n: 1,
-          size: '1024x1024',
-          response_format: 'url',
-        },
+        body,
       })
 
-      console.log('[DALL-E] 响应:', JSON.stringify(response, null, 2).slice(0, 500))
+      // 记录成功响应
+      if (taskId) {
+        logResponse(taskId, { status: 200, data: response })
+      }
 
       const imageData = response.data?.[0]
       if (!imageData) {
-        return {
-          success: false,
-          error: '未收到图片数据',
-        }
+        return { success: false, error: '未收到图片数据' }
       }
 
       return {
@@ -54,53 +89,86 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         imageBase64: imageData.b64_json,
       }
     } catch (error: any) {
-      console.error('[DALL-E] API错误:', error)
-      const errorMessage = error.data?.error?.message || error.message || '调用DALL-E API失败'
-      return {
-        success: false,
-        error: errorMessage,
+      // 记录错误响应
+      if (taskId) {
+        logResponse(taskId, {
+          status: error.status || error.statusCode,
+          statusText: error.statusText || error.statusMessage,
+          error: error.message,
+          data: error.data,
+        })
       }
+
+      const errorMessage = error.data?.error?.message || error.data?.message || error.message || '调用API失败'
+      return { success: false, error: errorMessage }
     }
   }
 
-  // 垫图 - 使用 /v1/images/generations 接口传递 image 参数
-  // 大多数中转站支持在 generations 接口中通过 image 参数传递参考图
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'dall-e-3'): Promise<GenerateResult> {
+  // 垫图
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'dall-e-3', taskId?: number): Promise<GenerateResult> {
     if (images.length === 0) {
-      return generateImage(prompt, modelName)
+      return generateImage(prompt, modelName, taskId)
+    }
+
+    const imageDataUrl = images[0]
+
+    // Flux 模型：使用 /v1/images/edits 端点和 multipart/form-data
+    if (isFluxModel(modelName)) {
+      return generateImageWithRefFlux(prompt, imageDataUrl, modelName, taskId)
+    }
+
+    // 豆包和其他模型：使用 /v1/images/generations 端点和 JSON
+    const url = `${baseUrl}/v1/images/generations`
+
+    // 豆包需要完整的 data URL 格式，其他模型使用纯 base64
+    let imageValue: string
+    if (isDoubaoModel(modelName)) {
+      // 豆包：保留完整的 data:image/...;base64,... 格式
+      imageValue = imageDataUrl
+    } else {
+      // 其他模型：提取纯 base64
+      const base64Match = imageDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
+      imageValue = base64Match ? base64Match[1] : imageDataUrl
+    }
+
+    const body: Record<string, any> = {
+      model: modelName,
+      prompt,
+      image: imageValue,
+      n: 1,
+      response_format: 'url',
+    }
+
+    // 豆包模型不发送 size 参数（部分上游不支持 adaptive）
+    if (!isDoubaoModel(modelName)) {
+      body.size = '1024x1024'
+    }
+
+    // 记录请求（图片数据截断）
+    if (taskId) {
+      logRequest(taskId, {
+        url,
+        method: 'POST',
+        headers,
+        body: { ...body, image: `[${isDoubaoModel(modelName) ? 'dataUrl' : 'base64'} ${imageValue.length} chars]` },
+      })
     }
 
     try {
-      console.log('[DALL-E] 垫图请求URL:', `${baseUrl}/v1/images/generations`)
-      console.log('[DALL-E] 模型:', modelName)
-      console.log('[DALL-E] 参考图数量:', images.length)
-
-      // 取第一张参考图，提取 base64 数据
-      const imageDataUrl = images[0]
-      const base64Match = imageDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
-      const imageBase64 = base64Match ? base64Match[1] : imageDataUrl
-
-      const response = await $fetch<DalleResponse>(`${baseUrl}/v1/images/generations`, {
+      const response = await $fetch<DalleResponse>(url, {
         method: 'POST',
         headers,
-        body: {
-          model: modelName,
-          prompt,
-          image: imageBase64, // 参考图 base64
-          n: 1,
-          size: '1024x1024',
-          response_format: 'url',
-        },
+        body,
       })
 
-      console.log('[DALL-E] 垫图响应:', JSON.stringify(response, null, 2).slice(0, 500))
+      // 记录成功响应
+      if (taskId) {
+        logResponse(taskId, { status: 200, data: response })
+      }
 
       const imageData = response.data?.[0]
       if (!imageData) {
-        return {
-          success: false,
-          error: '未收到图片数据',
-        }
+        return { success: false, error: '未收到图片数据' }
       }
 
       return {
@@ -109,12 +177,84 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         imageBase64: imageData.b64_json,
       }
     } catch (error: any) {
-      console.error('[DALL-E] 垫图API错误:', error)
-      const errorMessage = error.data?.error?.message || error.message || '垫图失败'
-      return {
-        success: false,
-        error: errorMessage,
+      // 记录错误响应
+      if (taskId) {
+        logResponse(taskId, {
+          status: error.status || error.statusCode,
+          statusText: error.statusText || error.statusMessage,
+          error: error.message,
+          data: error.data,
+        })
       }
+
+      const errorMessage = error.data?.error?.message || error.data?.message || error.message || '垫图失败'
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  // Flux 专用垫图：使用 multipart/form-data
+  async function generateImageWithRefFlux(prompt: string, imageDataUrl: string, modelName: string, taskId?: number): Promise<GenerateResult> {
+    const url = `${baseUrl}/v1/images/edits`
+
+    // 构建 FormData
+    const formData = new FormData()
+    formData.append('model', modelName)
+    formData.append('prompt', prompt)
+    formData.append('n', '1')
+    formData.append('response_format', 'b64_json')
+
+    // 将 data URL 转换为 Blob 并添加到 FormData
+    const blob = dataUrlToBlob(imageDataUrl)
+    formData.append('image', blob, 'image.png')
+
+    // 记录请求
+    if (taskId) {
+      logRequest(taskId, {
+        url,
+        method: 'POST',
+        headers: { 'Authorization': '[REDACTED]' },
+        body: { model: modelName, prompt, n: 1, response_format: 'b64_json', image: `[file ${blob.size} bytes]` },
+      })
+    }
+
+    try {
+      const response = await $fetch<DalleResponse>(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          // 不设置 Content-Type，让浏览器自动设置 multipart/form-data
+        },
+        body: formData,
+      })
+
+      // 记录成功响应
+      if (taskId) {
+        logResponse(taskId, { status: 200, data: response })
+      }
+
+      const imageData = response.data?.[0]
+      if (!imageData) {
+        return { success: false, error: '未收到图片数据' }
+      }
+
+      return {
+        success: true,
+        imageUrl: imageData.url,
+        imageBase64: imageData.b64_json,
+      }
+    } catch (error: any) {
+      // 记录错误响应
+      if (taskId) {
+        logResponse(taskId, {
+          status: error.status || error.statusCode,
+          statusText: error.statusText || error.statusMessage,
+          error: error.message,
+          data: error.data,
+        })
+      }
+
+      const errorMessage = error.data?.error?.message || error.data?.message || error.message || 'Flux垫图失败'
+      return { success: false, error: errorMessage }
     }
   }
 

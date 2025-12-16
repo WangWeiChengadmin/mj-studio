@@ -217,6 +217,12 @@ function handleImageClick() {
   }
 }
 
+// 查看参考图
+const showRefImages = ref(false)
+
+// 是否有参考图
+const hasRefImages = computed(() => props.task.images && props.task.images.length > 0)
+
 // 任务详情
 const showTaskDetail = ref(false)
 
@@ -350,6 +356,17 @@ function downloadImage() {
       >
         {{ modelInfo.label }}
       </div>
+
+      <!-- 参考图角标 -->
+      <button
+        v-if="hasRefImages"
+        class="absolute bottom-2 right-2 px-2 py-1 rounded-full text-xs text-white font-medium bg-black/60 backdrop-blur-sm hover:bg-black/80 transition-colors flex items-center gap-1"
+        title="查看参考图"
+        @click="showRefImages = true"
+      >
+        <UIcon name="i-heroicons-photo" class="w-3.5 h-3.5" />
+        <span>参考图 {{ task.images.length }}</span>
+      </button>
     </div>
 
     <!-- 信息区 -->
@@ -476,6 +493,39 @@ function downloadImage() {
           >
             <UIcon name="i-heroicons-arrow-down-tray" class="w-5 h-5 text-white" />
           </button>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- 参考图预览 Modal -->
+    <UModal v-model:open="showRefImages" :ui="{ content: 'sm:max-w-3xl' }">
+      <template #content>
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-medium text-(--ui-text)">参考图</h3>
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-(--ui-bg-accented) transition-colors"
+              @click="showRefImages = false"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-5 h-5 text-(--ui-text-muted)" />
+            </button>
+          </div>
+          <div class="grid gap-4" :class="task.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+            <div
+              v-for="(img, index) in task.images"
+              :key="index"
+              class="relative bg-(--ui-bg-muted) rounded-lg overflow-hidden"
+            >
+              <img
+                :src="img"
+                :alt="`参考图 ${index + 1}`"
+                class="w-full h-auto max-h-[60vh] object-contain"
+              />
+              <div class="absolute bottom-2 left-2 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm text-xs text-white">
+                {{ index + 1 }} / {{ task.images.length }}
+              </div>
+            </div>
+          </div>
         </div>
       </template>
     </UModal>

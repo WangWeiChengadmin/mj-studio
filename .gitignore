@@ -29,7 +29,7 @@ uploads/
 Thumbs.db
 
 # 日志
-*.log
+logs/
 
 # 缓存
 .cache/

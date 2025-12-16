@@ -121,4 +121,4 @@ pnpm dev
 
 ## 文档
 
-- [开发文档](docs/development.md) - 目录结构、核心概念、API 格式说明
+- [**DEVELOPMENT.md**](DEVELOPMENT.md) - **开发前必读**：目录结构、API 格式说明、日志系统

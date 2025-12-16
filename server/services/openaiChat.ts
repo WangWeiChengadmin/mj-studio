@@ -3,6 +3,7 @@
 // 适用于: GPT-4o Image, Grok-4 等
 
 import type { GenerateResult } from './types'
+import { logRequest, logResponse } from './logger'
 
 interface OpenAIChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -35,25 +36,15 @@ interface OpenAIChatResponse {
 }
 
 // 从content中提取图片URL
-// 支持多种格式：markdown ![](url)、纯URL、base64 data URL
 function extractImageUrl(content: string): string | undefined {
-  // 匹配 markdown 图片格式 ![...](url)
   const markdownMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/)
-  if (markdownMatch) {
-    return markdownMatch[1]
-  }
+  if (markdownMatch) return markdownMatch[1]
 
-  // 匹配 data URL (base64)
   const dataUrlMatch = content.match(/(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)/)
-  if (dataUrlMatch) {
-    return dataUrlMatch[1]
-  }
+  if (dataUrlMatch) return dataUrlMatch[1]
 
-  // 匹配纯URL
   const urlMatch = content.match(/(https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp))/i)
-  if (urlMatch) {
-    return urlMatch[1]
-  }
+  if (urlMatch) return urlMatch[1]
 
   return undefined
 }
@@ -66,140 +57,128 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
   }
 
   // 文生图
-  async function generateImage(prompt: string, modelName: string = 'gpt-4o-image'): Promise<GenerateResult> {
-    try {
-      console.log('[OpenAI Chat] 请求URL:', `${baseUrl}/v1/chat/completions`)
-      console.log('[OpenAI Chat] 模型:', modelName)
+  async function generateImage(prompt: string, modelName: string = 'gpt-4o-image', taskId?: number): Promise<GenerateResult> {
+    const url = `${baseUrl}/v1/chat/completions`
+    const body = {
+      model: modelName,
+      messages: [{ role: 'user', content: prompt }],
+      stream: false,
+    }
 
-      const response = await $fetch<OpenAIChatResponse>(`${baseUrl}/v1/chat/completions`, {
+    if (taskId) {
+      logRequest(taskId, { url, method: 'POST', headers, body })
+    }
+
+    try {
+      const response = await $fetch<OpenAIChatResponse>(url, {
         method: 'POST',
         headers,
-        body: {
-          model: modelName,
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          stream: false,
-        },
+        body,
       })
 
-      console.log('[OpenAI Chat] 响应:', JSON.stringify(response, null, 2).slice(0, 1000))
+      if (taskId) {
+        logResponse(taskId, { status: 200, data: response })
+      }
 
       const content = response.choices?.[0]?.message?.content || ''
       const imageUrl = extractImageUrl(content)
 
       if (!imageUrl) {
-        return {
-          success: false,
-          error: '未能从响应中提取图片: ' + content.slice(0, 200),
-        }
+        return { success: false, error: '未能从响应中提取图片: ' + content.slice(0, 200) }
       }
 
-      // 判断是否为base64
       if (imageUrl.startsWith('data:image/')) {
         const match = imageUrl.match(/data:(image\/[^;]+);base64,(.+)/)
         if (match) {
-          return {
-            success: true,
-            imageBase64: match[2],
-            mimeType: match[1],
-          }
+          return { success: true, imageBase64: match[2], mimeType: match[1] }
         }
       }
 
-      return {
-        success: true,
-        imageUrl,
-      }
+      return { success: true, imageUrl }
     } catch (error: any) {
-      console.error('[OpenAI Chat] API错误:', error)
-      const errorMessage = error.data?.error?.message || error.message || '调用OpenAI Chat API失败'
-      return {
-        success: false,
-        error: errorMessage,
+      if (taskId) {
+        logResponse(taskId, {
+          status: error.status || error.statusCode,
+          statusText: error.statusText || error.statusMessage,
+          error: error.message,
+          data: error.data,
+        })
       }
+      const errorMessage = error.data?.error?.message || error.message || '调用OpenAI Chat API失败'
+      return { success: false, error: errorMessage }
     }
   }
 
   // 垫图（带参考图）- 使用multimodal输入
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gpt-4o-image'): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gpt-4o-image', taskId?: number): Promise<GenerateResult> {
     if (images.length === 0) {
-      return generateImage(prompt, modelName)
+      return generateImage(prompt, modelName, taskId)
+    }
+
+    const url = `${baseUrl}/v1/chat/completions`
+
+    // 构建multimodal消息
+    const contentParts: Array<{type: 'text' | 'image_url', text?: string, image_url?: {url: string}}> = []
+
+    for (const img of images) {
+      contentParts.push({ type: 'image_url', image_url: { url: img } })
+    }
+    contentParts.push({ type: 'text', text: prompt })
+
+    const body = {
+      model: modelName,
+      messages: [{ role: 'user', content: contentParts }],
+      stream: false,
+    }
+
+    if (taskId) {
+      // 请求中的图片数据截断记录
+      const logBody = JSON.parse(JSON.stringify(body))
+      logBody.messages?.[0]?.content?.forEach((p: any) => {
+        if (p.image_url?.url?.startsWith('data:')) {
+          p.image_url.url = `[base64 ${p.image_url.url.length} chars]`
+        }
+      })
+      logRequest(taskId, { url, method: 'POST', headers, body: logBody })
     }
 
     try {
-      console.log('[OpenAI Chat] 垫图请求，参考图数量:', images.length)
-
-      // 构建multimodal消息
-      const contentParts: Array<{type: 'text' | 'image_url', text?: string, image_url?: {url: string}}> = []
-
-      // 添加参考图
-      for (const img of images) {
-        contentParts.push({
-          type: 'image_url',
-          image_url: {
-            url: img, // 支持base64 data URL或http URL
-          },
-        })
-      }
-
-      // 添加文本提示
-      contentParts.push({
-        type: 'text',
-        text: prompt,
-      })
-
-      const response = await $fetch<OpenAIChatResponse>(`${baseUrl}/v1/chat/completions`, {
+      const response = await $fetch<OpenAIChatResponse>(url, {
         method: 'POST',
         headers,
-        body: {
-          model: modelName,
-          messages: [
-            {
-              role: 'user',
-              content: contentParts,
-            },
-          ],
-          stream: false,
-        },
+        body,
       })
+
+      if (taskId) {
+        logResponse(taskId, { status: 200, data: response })
+      }
 
       const content = response.choices?.[0]?.message?.content || ''
       const imageUrl = extractImageUrl(content)
 
       if (!imageUrl) {
-        return {
-          success: false,
-          error: '未能从响应中提取图片: ' + content.slice(0, 200),
-        }
+        return { success: false, error: '未能从响应中提取图片: ' + content.slice(0, 200) }
       }
 
-      // 判断是否为base64
       if (imageUrl.startsWith('data:image/')) {
         const match = imageUrl.match(/data:(image\/[^;]+);base64,(.+)/)
         if (match) {
-          return {
-            success: true,
-            imageBase64: match[2],
-            mimeType: match[1],
-          }
+          return { success: true, imageBase64: match[2], mimeType: match[1] }
         }
       }
 
-      return {
-        success: true,
-        imageUrl,
-      }
+      return { success: true, imageUrl }
     } catch (error: any) {
-      console.error('[OpenAI Chat] 垫图API错误:', error)
-      const errorMessage = error.data?.error?.message || error.message || '垫图失败'
-      return {
-        success: false,
-        error: errorMessage,
+      if (taskId) {
+        logResponse(taskId, {
+          status: error.status || error.statusCode,
+          statusText: error.statusText || error.statusMessage,
+          error: error.message,
+          data: error.data,
+        })
       }
+      const errorMessage = error.data?.error?.message || error.message || '垫图失败'
+      return { success: false, error: errorMessage }
     }
   }
 
