@@ -1,7 +1,5 @@
 // 模型配置管理
-import type { ModelConfig } from './useTasks'
-
-type ModelType = 'midjourney' | 'gemini'
+import type { ModelConfig, ModelTypeConfig } from './useTasks'
 
 export function useModelConfigs() {
   const configs = useState<ModelConfig[]>('modelConfigs', () => [])
@@ -23,9 +21,9 @@ export function useModelConfigs() {
   // 创建配置
   async function createConfig(data: {
     name: string
-    types: ModelType[]
     baseUrl: string
     apiKey: string
+    modelTypeConfigs: ModelTypeConfig[]
     remark?: string
     isDefault?: boolean
   }) {
@@ -40,9 +38,9 @@ export function useModelConfigs() {
   // 更新配置
   async function updateConfig(id: number, data: Partial<{
     name: string
-    types: ModelType[]
     baseUrl: string
     apiKey: string
+    modelTypeConfigs: ModelTypeConfig[]
     remark: string | null
     isDefault: boolean
   }>) {

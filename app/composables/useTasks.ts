@@ -1,13 +1,24 @@
 // 任务状态管理
 
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'gpt4o-image' | 'grok-image'
+type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
+
+// 模型类型配置
+export interface ModelTypeConfig {
+  modelType: ModelType
+  apiFormat: ApiFormat
+  modelName: string
+  estimatedTime: number
+}
+
 // 模型配置类型
 export interface ModelConfig {
   id: number
   userId: number
   name: string
-  types: Array<'midjourney' | 'gemini'>
   baseUrl: string
   apiKey: string
+  modelTypeConfigs: ModelTypeConfig[]
   remark: string | null
   isDefault: boolean
   createdAt: string
@@ -18,7 +29,9 @@ export interface Task {
   id: number
   userId: number
   modelConfigId: number
-  modelType: 'midjourney' | 'gemini' // 实际使用的模型类型
+  modelType: ModelType
+  apiFormat: ApiFormat
+  modelName: string | null
   modelConfig?: ModelConfig // 关联的模型配置
   prompt: string | null
   images: string[]

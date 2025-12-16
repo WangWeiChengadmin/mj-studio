@@ -1,6 +1,6 @@
 // 模型配置服务层
 import { db } from '../database'
-import { modelConfigs, type ModelConfig, type NewModelConfig, type ModelType } from '../database/schema'
+import { modelConfigs, type ModelConfig, type NewModelConfig, type ModelTypeConfig } from '../database/schema'
 import { eq, and } from 'drizzle-orm'
 
 export function useModelConfigService() {
@@ -29,9 +29,9 @@ export function useModelConfigService() {
   async function create(data: {
     userId: number
     name: string
-    types: ModelType[]
     baseUrl: string
     apiKey: string
+    modelTypeConfigs: ModelTypeConfig[]
     remark?: string
     isDefault?: boolean
   }): Promise<ModelConfig> {
@@ -45,9 +45,9 @@ export function useModelConfigService() {
     const [config] = await db.insert(modelConfigs).values({
       userId: data.userId,
       name: data.name,
-      types: data.types,
       baseUrl: data.baseUrl,
       apiKey: data.apiKey,
+      modelTypeConfigs: data.modelTypeConfigs,
       remark: data.remark ?? null,
       isDefault: data.isDefault ?? false,
     }).returning()
@@ -58,9 +58,9 @@ export function useModelConfigService() {
   // 更新配置
   async function update(id: number, userId: number, data: Partial<{
     name: string
-    types: ModelType[]
     baseUrl: string
     apiKey: string
+    modelTypeConfigs: ModelTypeConfig[]
     remark: string | null
     isDefault: boolean
   }>): Promise<ModelConfig | undefined> {

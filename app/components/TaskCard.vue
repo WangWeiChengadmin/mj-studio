@@ -70,15 +70,33 @@ const statusInfo = computed(() => {
   }
 })
 
+// 模型类型显示配置
+const MODEL_DISPLAY: Record<string, { label: string; color: string }> = {
+  'midjourney': { label: 'MJ', color: 'bg-purple-500/80' },
+  'gemini': { label: 'Gemini', color: 'bg-blue-500/80' },
+  'flux': { label: 'Flux', color: 'bg-orange-500/80' },
+  'dalle': { label: 'DALL-E', color: 'bg-green-500/80' },
+  'gpt4o-image': { label: 'GPT-4o', color: 'bg-emerald-500/80' },
+  'grok-image': { label: 'Grok', color: 'bg-red-500/80' },
+}
+
+// 请求格式显示配置
+const API_FORMAT_DISPLAY: Record<string, string> = {
+  'mj-proxy': 'MJ-Proxy',
+  'gemini': 'Gemini API',
+  'dalle': 'DALL-E API',
+  'openai-chat': 'OpenAI Chat',
+}
+
 // 获取模型显示信息
 const modelInfo = computed(() => {
   const modelType = props.task.modelType
+  const display = MODEL_DISPLAY[modelType] || { label: modelType || '未知', color: 'bg-gray-500/80' }
 
-  // 优先按模型类型显示，而非上游配置名称
   return {
-    label: modelType === 'gemini' ? 'Gemini' : 'MJ',
+    label: display.label,
     type: modelType,
-    color: modelType === 'gemini' ? 'bg-blue-500/80' : 'bg-purple-500/80'
+    color: display.color,
   }
 })
 
@@ -353,6 +371,10 @@ function downloadImage() {
             <div class="flex justify-between">
               <span class="text-(--ui-text-muted)">模型类型</span>
               <span class="text-(--ui-text)">{{ modelInfo.label }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-(--ui-text-muted)">请求格式</span>
+              <span class="text-(--ui-text)">{{ API_FORMAT_DISPLAY[task.apiFormat] || task.apiFormat }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-(--ui-text-muted)">任务类型</span>

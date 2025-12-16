@@ -1,6 +1,6 @@
 # MJ Studio
 
-多模型 AI 绘图工作台，支持 Midjourney 和 Gemini 图像生成。
+多模型 AI 绘图工作台，支持 Midjourney、Gemini、Flux、DALL-E、GPT-4o、Grok 等图像生成模型。
 
 ## 简介
 
@@ -43,8 +43,15 @@ MJ Studio 是一个自托管的 AI 绘图平台，允许用户通过统一界面
 - 重绘按钮
 
 ### 多模型支持
-- **Midjourney**：通过兼容 MJ-Proxy 的中转站
-- **Gemini**：Google Gemini 2.5 Flash Image 模型
+
+| 模型 | 请求格式 | 文生图 | 垫图 | V/U 操作 |
+|-----|---------|-------|-----|---------|
+| **Midjourney** | MJ-Proxy | ✅ | ✅ | ✅ |
+| **Gemini** | Gemini API | ✅ | ✅ | - |
+| **Flux** | DALL-E API | ✅ | ✅ | - |
+| **DALL-E** | DALL-E API | ✅ | ✅ | - |
+| **GPT-4o Image** | OpenAI Chat | ✅ | ✅ | - |
+| **Grok Image** | OpenAI Chat | ✅ | ✅ | - |
 
 ### 用户系统
 - 邮箱密码登录/注册
@@ -114,9 +121,12 @@ NUXT_SESSION_PASSWORD=your-session-secret-at-least-32-chars
 │   │   ├── index.ts            # 数据库连接
 │   │   └── schema.ts           # 表结构定义
 │   └── services/
-│       ├── task.ts             # 任务服务
-│       ├── mj.ts               # MJ API 封装
-│       ├── gemini.ts           # Gemini API 封装
+│       ├── task.ts             # 任务服务（调度）
+│       ├── mj.ts               # MJ-Proxy 格式
+│       ├── gemini.ts           # Gemini 格式
+│       ├── dalle.ts            # DALL-E 格式
+│       ├── openaiChat.ts       # OpenAI Chat 格式
+│       ├── types.ts            # 统一类型定义
 │       └── modelConfig.ts      # 模型配置服务
 ├── drizzle.config.ts           # Drizzle 配置
 └── nuxt.config.ts              # Nuxt 配置
@@ -124,16 +134,25 @@ NUXT_SESSION_PASSWORD=your-session-secret-at-least-32-chars
 
 ## API 兼容性
 
-### Midjourney
-兼容 [midjourney-proxy](https://github.com/novicezk/midjourney-proxy) API 格式：
+### MJ-Proxy 格式
+兼容 [midjourney-proxy](https://github.com/novicezk/midjourney-proxy) API：
 - `POST /mj/submit/imagine` - 文生图
 - `POST /mj/submit/blend` - 图片混合
 - `POST /mj/submit/action` - 按钮操作
 - `GET /mj/task/{id}/fetch` - 查询任务
 
-### Gemini
+### Gemini 格式
 使用 Google Generative Language API：
-- `POST /v1beta/models/gemini-2.5-flash-image:generateContent`
+- `POST /v1beta/models/{model}:generateContent`
+
+### DALL-E 格式
+兼容 OpenAI Images API：
+- `POST /v1/images/generations` - 文生图
+- `POST /v1/images/edits` - 垫图编辑
+
+### OpenAI Chat 格式
+兼容 OpenAI Chat Completions API（支持图像生成的模型）：
+- `POST /v1/chat/completions` - 文生图/垫图
 
 ## 参考链接
 

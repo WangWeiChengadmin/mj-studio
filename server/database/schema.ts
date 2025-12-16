@@ -13,16 +13,57 @@ export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 
 // 支持的模型类型
-export type ModelType = 'midjourney' | 'gemini'
+export type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'gpt4o-image' | 'grok-image'
+
+// 支持的请求格式
+export type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
+
+// 模型类型配置
+export interface ModelTypeConfig {
+  modelType: ModelType
+  apiFormat: ApiFormat
+  modelName: string        // 实际请求时使用的模型名称
+  estimatedTime: number    // 预计生成时间（秒）
+}
+
+// 模型类型与请求格式的对应关系
+export const MODEL_FORMAT_MAP: Record<ModelType, ApiFormat[]> = {
+  'midjourney': ['mj-proxy'],
+  'gemini': ['gemini', 'openai-chat'],
+  'flux': ['dalle'],
+  'dalle': ['dalle'],
+  'gpt4o-image': ['openai-chat'],
+  'grok-image': ['openai-chat'],
+}
+
+// 默认模型名称
+export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
+  'midjourney': '',
+  'gemini': 'gemini-2.5-flash-image',
+  'flux': 'flux-dev',
+  'dalle': 'dall-e-3',
+  'gpt4o-image': 'gpt-4o-image',
+  'grok-image': 'grok-4',
+}
+
+// 默认预计时间（秒）
+export const DEFAULT_ESTIMATED_TIMES: Record<ModelType, number> = {
+  'midjourney': 60,
+  'gemini': 15,
+  'flux': 20,
+  'dalle': 15,
+  'gpt4o-image': 30,
+  'grok-image': 30,
+}
 
 // 模型配置表（用户级别）
 export const modelConfigs = sqliteTable('model_configs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id').notNull(),
   name: text('name').notNull(), // 上游名称，用户自定义，如 "我的MJ", "公司API"
-  types: text('types', { mode: 'json' }).$type<ModelType[]>().notNull(), // 支持的模型类型数组
   baseUrl: text('base_url').notNull(), // API请求前缀
   apiKey: text('api_key').notNull(), // API密钥
+  modelTypeConfigs: text('model_type_configs', { mode: 'json' }).$type<ModelTypeConfig[]>().notNull(), // 模型类型配置数组
   remark: text('remark'), // 备注说明
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // 是否默认
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
@@ -40,6 +81,8 @@ export const tasks = sqliteTable('tasks', {
   userId: integer('user_id').notNull().default(1),
   modelConfigId: integer('model_config_id').notNull(), // 关联模型配置
   modelType: text('model_type').$type<ModelType>().notNull(), // 实际使用的模型类型
+  apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 使用的请求格式
+  modelName: text('model_name'), // 实际使用的模型名称
   prompt: text('prompt'),
   images: text('images', { mode: 'json' }).$type<string[]>().default([]),
   type: text('type').notNull().default('imagine'), // imagine | blend

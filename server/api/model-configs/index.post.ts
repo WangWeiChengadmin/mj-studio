@@ -1,26 +1,32 @@
 // POST /api/model-configs - 创建模型配置
 import { useModelConfigService } from '../../services/modelConfig'
-import type { ModelType } from '../../database/schema'
+import type { ModelTypeConfig, ModelType, ApiFormat, MODEL_FORMAT_MAP } from '../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
   const body = await readBody(event)
 
-  const { name, types, baseUrl, apiKey, remark, isDefault } = body
+  const { name, baseUrl, apiKey, modelTypeConfigs, remark, isDefault } = body
 
   // 验证必填字段
   if (!name?.trim()) {
     throw createError({ statusCode: 400, message: '请输入配置名称' })
   }
 
-  // 验证模型类型数组
-  const validTypes: ModelType[] = ['midjourney', 'gemini']
-  if (!Array.isArray(types) || types.length === 0) {
-    throw createError({ statusCode: 400, message: '请至少选择一种模型类型' })
+  // 验证模型类型配置数组
+  if (!Array.isArray(modelTypeConfigs) || modelTypeConfigs.length === 0) {
+    throw createError({ statusCode: 400, message: '请至少添加一种模型类型' })
   }
-  for (const t of types) {
-    if (!validTypes.includes(t)) {
-      throw createError({ statusCode: 400, message: `不支持的模型类型: ${t}` })
+
+  const validModelTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'gpt4o-image', 'grok-image']
+  const validApiFormats: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
+
+  for (const mtc of modelTypeConfigs) {
+    if (!validModelTypes.includes(mtc.modelType)) {
+      throw createError({ statusCode: 400, message: `不支持的模型类型: ${mtc.modelType}` })
+    }
+    if (!validApiFormats.includes(mtc.apiFormat)) {
+      throw createError({ statusCode: 400, message: `不支持的API格式: ${mtc.apiFormat}` })
     }
   }
 
@@ -37,9 +43,9 @@ export default defineEventHandler(async (event) => {
   const config = await service.create({
     userId: user.id,
     name: name.trim(),
-    types,
     baseUrl: baseUrl.trim(),
     apiKey: apiKey.trim(),
+    modelTypeConfigs,
     remark: remark?.trim() || undefined,
     isDefault: isDefault ?? false,
   })

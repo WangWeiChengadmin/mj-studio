@@ -1,14 +1,14 @@
 // POST /api/tasks - 创建生图任务
 import { useTaskService } from '../../services/task'
 import { useModelConfigService } from '../../services/modelConfig'
-import type { ModelType } from '../../database/schema'
+import type { ModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
   const { user } = await requireUserSession(event)
 
   const body = await readBody(event)
-  const { prompt, base64Array = [], type = 'imagine', modelConfigId, modelType } = body
+  const { prompt, base64Array = [], type = 'imagine', modelConfigId, modelType, apiFormat, modelName } = body
 
   // 验证模型配置
   if (!modelConfigId) {
@@ -19,11 +19,20 @@ export default defineEventHandler(async (event) => {
   }
 
   // 验证模型类型
-  const validTypes: ModelType[] = ['midjourney', 'gemini']
+  const validTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'gpt4o-image', 'grok-image']
   if (!modelType || !validTypes.includes(modelType)) {
     throw createError({
       statusCode: 400,
       message: '请选择模型类型',
+    })
+  }
+
+  // 验证API格式
+  const validFormats: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
+  if (!apiFormat || !validFormats.includes(apiFormat)) {
+    throw createError({
+      statusCode: 400,
+      message: '请选择API格式',
     })
   }
 
@@ -39,7 +48,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // 验证配置支持该模型类型
-  if (!config.types.includes(modelType)) {
+  const modelTypeConfig = config.modelTypeConfigs?.find((mtc: ModelTypeConfig) => mtc.modelType === modelType)
+  if (!modelTypeConfig) {
     throw createError({
       statusCode: 400,
       message: '该配置不支持此模型类型',
@@ -53,11 +63,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // blend模式仅支持midjourney
-  if (type === 'blend' && modelType !== 'midjourney') {
+  // blend模式仅支持mj-proxy格式
+  if (type === 'blend' && apiFormat !== 'mj-proxy') {
     throw createError({
       statusCode: 400,
-      message: '混合模式仅支持Midjourney',
+      message: '混合模式仅支持MJ-Proxy格式',
     })
   }
 
@@ -75,6 +85,8 @@ export default defineEventHandler(async (event) => {
     userId: user.id,
     modelConfigId,
     modelType,
+    apiFormat,
+    modelName: modelName || modelTypeConfig.modelName,
     prompt,
     images: base64Array,
     type,

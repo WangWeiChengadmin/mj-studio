@@ -1,10 +1,13 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
-import { tasks, modelConfigs, type Task, type TaskStatus, type ModelConfig, type ModelType } from '../database/schema'
-import { eq, desc, and } from 'drizzle-orm'
+import { tasks, modelConfigs, type Task, type TaskStatus, type ModelConfig, type ModelType, type ApiFormat, type ModelTypeConfig } from '../database/schema'
+import { eq, desc } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
+import { createDalleService } from './dalle'
+import { createOpenAIChatService } from './openaiChat'
 import { downloadImage, saveBase64Image, getImageUrl } from './image'
+import type { GenerateResult } from './types'
 
 export function useTaskService() {
   // 创建任务（仅保存到数据库）
@@ -12,6 +15,8 @@ export function useTaskService() {
     userId: number
     modelConfigId: number
     modelType: ModelType
+    apiFormat: ApiFormat
+    modelName?: string
     prompt?: string
     images?: string[]
     type?: 'imagine' | 'blend'
@@ -20,6 +25,8 @@ export function useTaskService() {
       userId: data.userId,
       modelConfigId: data.modelConfigId,
       modelType: data.modelType,
+      apiFormat: data.apiFormat,
+      modelName: data.modelName ?? null,
       prompt: data.prompt ?? null,
       images: data.images ?? [],
       type: data.type ?? 'imagine',
@@ -74,13 +81,6 @@ export function useTaskService() {
 
     // 获取所有相关的模型配置
     const configIds = [...new Set(taskList.map(t => t.modelConfigId))]
-    const configs = await db.query.modelConfigs.findMany({
-      where: configIds.length > 0
-        ? eq(modelConfigs.id, configIds[0]) // TODO: 使用 inArray
-        : undefined,
-    })
-
-    // 如果有多个配置ID，需要查询所有
     const configMap = new Map<number, ModelConfig>()
     for (const id of configIds) {
       const config = await db.query.modelConfigs.findFirst({
@@ -95,7 +95,7 @@ export function useTaskService() {
     }))
   }
 
-  // 提交任务（根据模型配置选择服务）
+  // 提交任务（根据apiFormat选择服务）
   async function submitTask(taskId: number): Promise<void> {
     const data = await getTaskWithConfig(taskId)
     if (!data) {
@@ -107,50 +107,125 @@ export function useTaskService() {
     // 更新状态为提交中
     await updateTask(taskId, { status: 'submitting' })
 
-    // 根据任务的模型类型选择不同的处理方式
-    if (task.modelType === 'gemini') {
-      await submitToGemini(task, config)
-    } else {
-      await submitToMJ(task, config)
+    // 根据apiFormat选择不同的处理方式
+    switch (task.apiFormat) {
+      case 'mj-proxy':
+        await submitToMJ(task, config)
+        break
+      case 'gemini':
+        await submitToGemini(task, config)
+        break
+      case 'dalle':
+        await submitToDalle(task, config)
+        break
+      case 'openai-chat':
+        await submitToOpenAIChat(task, config)
+        break
+      default:
+        await updateTask(taskId, {
+          status: 'failed',
+          error: `不支持的API格式: ${task.apiFormat}`,
+        })
     }
   }
 
-  // 提交到Gemini（同步API，立即返回结果）
+  // 处理同步API的结果
+  async function handleSyncResult(task: Task, config: ModelConfig, result: GenerateResult): Promise<void> {
+    if (!result.success) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: result.error || '生成失败',
+      })
+      return
+    }
+
+    // 保存图片到本地
+    let fileName: string | null = null
+
+    if (result.imageBase64) {
+      const dataUrl = `data:${result.mimeType || 'image/png'};base64,${result.imageBase64}`
+      fileName = saveBase64Image(dataUrl)
+    } else if (result.imageUrl) {
+      fileName = await downloadImage(result.imageUrl)
+    }
+
+    if (!fileName) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: '保存图片到本地失败',
+      })
+      return
+    }
+
+    await updateTask(task.id, {
+      status: 'success',
+      progress: '100%',
+      imageUrl: getImageUrl(fileName),
+    })
+
+    // 更新预计时间
+    await updateEstimatedTime(config, task.modelType, task.createdAt)
+  }
+
+  // 提交到Gemini（同步API）
   async function submitToGemini(task: Task, config: ModelConfig): Promise<void> {
     const gemini = createGeminiService(config.baseUrl, config.apiKey)
+    const modelName = task.modelName || 'gemini-2.5-flash-image'
 
     try {
-      const result = await gemini.generateImage(task.prompt ?? '')
-
-      if (!result.success) {
-        await updateTask(task.id, {
-          status: 'failed',
-          error: result.error || 'Gemini生成失败',
-        })
-        return
+      let result: GenerateResult
+      if (task.images && task.images.length > 0) {
+        result = await gemini.generateImageWithRef(task.prompt ?? '', task.images, modelName)
+      } else {
+        result = await gemini.generateImage(task.prompt ?? '', modelName)
       }
-
-      // Gemini返回base64图像，保存到本地
-      const dataUrl = `data:${result.mimeType};base64,${result.imageBase64}`
-      const fileName = saveBase64Image(dataUrl)
-
-      if (!fileName) {
-        await updateTask(task.id, {
-          status: 'failed',
-          error: '保存图片到本地失败',
-        })
-        return
-      }
-
-      await updateTask(task.id, {
-        status: 'success',
-        progress: '100%',
-        imageUrl: getImageUrl(fileName),
-      })
+      await handleSyncResult(task, config, result)
     } catch (error: any) {
       await updateTask(task.id, {
         status: 'failed',
         error: error.message || 'Gemini生成失败',
+      })
+    }
+  }
+
+  // 提交到DALL-E（同步API）
+  async function submitToDalle(task: Task, config: ModelConfig): Promise<void> {
+    const dalle = createDalleService(config.baseUrl, config.apiKey)
+    const modelName = task.modelName || 'dall-e-3'
+
+    try {
+      let result: GenerateResult
+      if (task.images && task.images.length > 0) {
+        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName)
+      } else {
+        result = await dalle.generateImage(task.prompt ?? '', modelName)
+      }
+      await handleSyncResult(task, config, result)
+    } catch (error: any) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: error.message || 'DALL-E生成失败',
+      })
+    }
+  }
+
+  // 提交到OpenAI Chat（同步API）
+  async function submitToOpenAIChat(task: Task, config: ModelConfig): Promise<void> {
+    const openai = createOpenAIChatService(config.baseUrl, config.apiKey)
+    const modelName = task.modelName || 'gpt-4o-image'
+
+    try {
+      let result: GenerateResult
+      if (task.images && task.images.length > 0) {
+        result = await openai.generateImageWithRef(task.prompt ?? '', task.images, modelName)
+      } else {
+        result = await openai.generateImage(task.prompt ?? '', modelName)
+      }
+      await handleSyncResult(task, config, result)
+    } catch (error: any) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: error.message || 'OpenAI Chat生成失败',
       })
     }
   }
@@ -188,15 +263,15 @@ export function useTaskService() {
     }
   }
 
-  // 同步任务状态（仅MJ需要轮询，Gemini是同步的）
+  // 同步任务状态（仅MJ需要轮询）
   async function syncTaskStatus(taskId: number): Promise<Task | undefined> {
     const data = await getTaskWithConfig(taskId)
     if (!data) return undefined
 
     const { task, config } = data
 
-    // Gemini任务是同步的，不需要轮询
-    if (task.modelType === 'gemini') {
+    // 非MJ任务不需要轮询
+    if (task.apiFormat !== 'mj-proxy') {
       return task
     }
 
@@ -228,6 +303,9 @@ export function useTaskService() {
           imageUrl = getImageUrl(fileName)
         }
         // 下载失败时保留原始URL
+
+        // 更新预计时间
+        await updateEstimatedTime(config, task.modelType, task.createdAt)
       }
 
       return await updateTask(taskId, {
@@ -244,6 +322,33 @@ export function useTaskService() {
     }
   }
 
+  // 更新预计时间
+  async function updateEstimatedTime(config: ModelConfig, modelType: ModelType, startTime: Date): Promise<void> {
+    try {
+      const endTime = new Date()
+      const actualTime = Math.round((endTime.getTime() - startTime.getTime()) / 1000)
+
+      // 找到对应的模型类型配置并更新预计时间
+      const modelTypeConfigs = [...config.modelTypeConfigs]
+      const index = modelTypeConfigs.findIndex(mtc => mtc.modelType === modelType)
+
+      if (index >= 0) {
+        modelTypeConfigs[index] = {
+          ...modelTypeConfigs[index],
+          estimatedTime: actualTime,
+        }
+
+        await db.update(modelConfigs)
+          .set({ modelTypeConfigs })
+          .where(eq(modelConfigs.id, config.id))
+
+        console.log(`[Task] 更新 ${modelType} 预计时间: ${actualTime}s`)
+      }
+    } catch (error) {
+      console.error('更新预计时间失败:', error)
+    }
+  }
+
   // 执行按钮动作（创建新任务，仅MJ支持）
   async function executeAction(parentTaskId: number, customId: string, userId: number): Promise<Task> {
     const data = await getTaskWithConfig(parentTaskId)
@@ -253,8 +358,8 @@ export function useTaskService() {
 
     const { task: parentTask, config } = data
 
-    if (parentTask.modelType !== 'midjourney') {
-      throw new Error('仅Midjourney支持按钮动作')
+    if (parentTask.apiFormat !== 'mj-proxy') {
+      throw new Error('仅MJ-Proxy格式支持按钮动作')
     }
 
     if (!parentTask.upstreamTaskId) {
@@ -266,6 +371,8 @@ export function useTaskService() {
       userId,
       modelConfigId: parentTask.modelConfigId,
       modelType: parentTask.modelType,
+      apiFormat: parentTask.apiFormat,
+      modelName: parentTask.modelName,
       prompt: parentTask.prompt,
       images: parentTask.images,
       type: 'imagine',

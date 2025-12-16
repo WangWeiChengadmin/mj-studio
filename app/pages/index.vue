@@ -15,7 +15,7 @@ onMounted(() => {
   loadConfigs()
 })
 
-async function handleSubmit(prompt: string, images: string[], modelConfigId: number, modelType: string) {
+async function handleSubmit(prompt: string, images: string[], modelConfigId: number, modelType: string, apiFormat: string, modelName: string) {
   try {
     const result = await $fetch<{ success: boolean; taskId: number; message: string }>('/api/tasks', {
       method: 'POST',
@@ -25,6 +25,8 @@ async function handleSubmit(prompt: string, images: string[], modelConfigId: num
         type: images.length > 0 && !prompt ? 'blend' : 'imagine',
         modelConfigId,
         modelType,
+        apiFormat,
+        modelName,
       },
     })
 

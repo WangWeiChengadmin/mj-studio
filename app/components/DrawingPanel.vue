@@ -1,14 +1,42 @@
 <script setup lang="ts">
 import type { ModelConfig } from '~/composables/useTasks'
 
-type ModelType = 'midjourney' | 'gemini'
+type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'gpt4o-image' | 'grok-image'
+type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
+
+interface ModelTypeConfig {
+  modelType: ModelType
+  apiFormat: ApiFormat
+  modelName: string
+  estimatedTime: number
+}
+
+// 模型类型显示名称
+const MODEL_TYPE_LABELS: Record<ModelType, string> = {
+  'midjourney': 'Midjourney',
+  'gemini': 'Gemini',
+  'flux': 'Flux',
+  'dalle': 'DALL-E',
+  'gpt4o-image': 'GPT-4o Image',
+  'grok-image': 'Grok Image',
+}
+
+// 模型类型图标
+const MODEL_TYPE_ICONS: Record<ModelType, string> = {
+  'midjourney': 'i-heroicons-sparkles',
+  'gemini': 'i-heroicons-cpu-chip',
+  'flux': 'i-heroicons-bolt',
+  'dalle': 'i-heroicons-photo',
+  'gpt4o-image': 'i-heroicons-chat-bubble-left-right',
+  'grok-image': 'i-heroicons-rocket-launch',
+}
 
 const props = defineProps<{
   modelConfigs: ModelConfig[]
 }>()
 
 const emit = defineEmits<{
-  submit: [prompt: string, images: string[], modelConfigId: number, modelType: ModelType]
+  submit: [prompt: string, images: string[], modelConfigId: number, modelType: ModelType, apiFormat: ApiFormat, modelName: string]
 }>()
 
 const prompt = ref('')
@@ -22,23 +50,45 @@ const selectedConfig = computed(() => {
   return props.modelConfigs.find(c => c.id === selectedConfigId.value)
 })
 
+// 选中的模型类型配置
+const selectedModelTypeConfig = computed((): ModelTypeConfig | undefined => {
+  if (!selectedConfig.value || !selectedModelType.value) return undefined
+  return selectedConfig.value.modelTypeConfigs?.find(
+    (mtc: ModelTypeConfig) => mtc.modelType === selectedModelType.value
+  )
+})
+
+// 当前配置支持的模型类型列表
+const availableModelTypes = computed((): ModelTypeConfig[] => {
+  if (!selectedConfig.value?.modelTypeConfigs) return []
+  return selectedConfig.value.modelTypeConfigs
+})
+
+// 是否支持垫图（MJ-Proxy格式支持）
+const supportsReferenceImages = computed(() => {
+  return selectedModelTypeConfig.value?.apiFormat === 'mj-proxy'
+})
+
 // 当配置列表变化时，选择默认配置
 watch(() => props.modelConfigs, (configs) => {
   if (configs.length > 0 && !selectedConfigId.value) {
     const defaultConfig = configs.find(c => c.isDefault) || configs[0]
     selectedConfigId.value = defaultConfig.id
     // 默认选择第一个支持的模型类型
-    selectedModelType.value = defaultConfig.types[0]
+    if (defaultConfig.modelTypeConfigs && defaultConfig.modelTypeConfigs.length > 0) {
+      selectedModelType.value = defaultConfig.modelTypeConfigs[0].modelType
+    }
   }
 }, { immediate: true })
 
 // 当配置变化时，更新模型类型选择
 watch(selectedConfigId, (newId) => {
   const config = props.modelConfigs.find(c => c.id === newId)
-  if (config) {
+  if (config?.modelTypeConfigs && config.modelTypeConfigs.length > 0) {
     // 如果当前选择的模型类型不在新配置支持的列表中，切换到第一个
-    if (!selectedModelType.value || !config.types.includes(selectedModelType.value)) {
-      selectedModelType.value = config.types[0]
+    const supportedTypes = config.modelTypeConfigs.map((mtc: ModelTypeConfig) => mtc.modelType)
+    if (!selectedModelType.value || !supportedTypes.includes(selectedModelType.value)) {
+      selectedModelType.value = config.modelTypeConfigs[0].modelType
     }
   }
 })
@@ -80,20 +130,28 @@ async function handleSubmit() {
     return
   }
 
-  if (!selectedConfigId.value || !selectedModelType.value) {
+  if (!selectedConfigId.value || !selectedModelType.value || !selectedModelTypeConfig.value) {
     alert('请先选择模型配置')
     return
   }
 
-  // Gemini不支持纯参考图模式
-  if (selectedModelType.value === 'gemini' && referenceImages.value.length > 0 && !prompt.value.trim()) {
-    alert('Gemini模型需要输入提示词')
+  // 非MJ模式下，不支持纯参考图
+  if (!supportsReferenceImages.value && referenceImages.value.length > 0 && !prompt.value.trim()) {
+    alert('当前模型需要输入提示词')
     return
   }
 
   isSubmitting.value = true
   try {
-    emit('submit', prompt.value, referenceImages.value, selectedConfigId.value, selectedModelType.value)
+    emit(
+      'submit',
+      prompt.value,
+      referenceImages.value,
+      selectedConfigId.value,
+      selectedModelType.value,
+      selectedModelTypeConfig.value.apiFormat,
+      selectedModelTypeConfig.value.modelName
+    )
     // 提交后清空参考图，但保留提示词
     referenceImages.value = []
   } finally {
@@ -160,14 +218,14 @@ function applyTemplate(template: string) {
             </div>
             <div class="flex gap-1">
               <span
-                v-for="t in config.types"
-                :key="t"
+                v-for="mtc in (config.modelTypeConfigs || [])"
+                :key="mtc.modelType"
                 :class="[
                   'px-1.5 py-0.5 rounded text-xs',
-                  t === 'midjourney' ? 'bg-(--ui-primary)/20 text-(--ui-primary)' : 'bg-(--ui-secondary)/20 text-(--ui-secondary)'
+                  'bg-(--ui-primary)/20 text-(--ui-primary)'
                 ]"
               >
-                {{ t === 'midjourney' ? 'MJ' : 'Gemini' }}
+                {{ MODEL_TYPE_LABELS[mtc.modelType as ModelType] || mtc.modelType }}
               </span>
             </div>
           </div>
@@ -176,34 +234,34 @@ function applyTemplate(template: string) {
       </div>
     </div>
 
-    <!-- 模型类型选择（仅当上游支持多个类型时显示） -->
-    <div v-if="selectedConfig && selectedConfig.types.length > 1" class="mb-4">
+    <!-- 模型类型选择（当上游支持多个类型时显示） -->
+    <div v-if="availableModelTypes.length > 1" class="mb-4">
       <h3 class="text-(--ui-text-toned) text-sm font-medium mb-3">选择模型</h3>
       <div class="grid grid-cols-2 gap-2">
         <button
-          v-for="t in selectedConfig.types"
-          :key="t"
+          v-for="mtc in availableModelTypes"
+          :key="mtc.modelType"
           :class="[
             'p-2 rounded-lg border-2 transition-all text-center flex items-center justify-center gap-2',
-            selectedModelType === t
+            selectedModelType === mtc.modelType
               ? 'border-(--ui-primary) bg-(--ui-primary)/10'
               : 'border-(--ui-border) hover:border-(--ui-border-accented) bg-(--ui-bg-muted)'
           ]"
-          @click="selectedModelType = t"
+          @click="selectedModelType = mtc.modelType"
         >
           <UIcon
-            :name="t === 'midjourney' ? 'i-heroicons-sparkles' : 'i-heroicons-cpu-chip'"
-            :class="['w-4 h-4', selectedModelType === t ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
+            :name="MODEL_TYPE_ICONS[mtc.modelType] || 'i-heroicons-sparkles'"
+            :class="['w-4 h-4', selectedModelType === mtc.modelType ? 'text-(--ui-primary)' : 'text-(--ui-text-dimmed)']"
           />
-          <span :class="['text-sm', selectedModelType === t ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
-            {{ t === 'midjourney' ? 'Midjourney' : 'Gemini' }}
+          <span :class="['text-sm', selectedModelType === mtc.modelType ? 'text-(--ui-text-highlighted)' : 'text-(--ui-text-muted)']">
+            {{ MODEL_TYPE_LABELS[mtc.modelType] || mtc.modelType }}
           </span>
         </button>
       </div>
     </div>
 
-    <!-- 参考图上传区 (仅Midjourney支持) -->
-    <div v-if="selectedModelType === 'midjourney'" class="mb-6">
+    <!-- 参考图上传区 (仅MJ-Proxy格式支持) -->
+    <div v-if="supportsReferenceImages" class="mb-6">
       <div class="flex items-center justify-between mb-3">
         <h3 class="text-(--ui-text-toned) text-sm font-medium">参考图 (可选，最多3张)</h3>
         <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，单张最大10MB</span>

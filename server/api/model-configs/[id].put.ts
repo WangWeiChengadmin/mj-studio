@@ -1,6 +1,6 @@
 // PUT /api/model-configs/[id] - 更新模型配置
 import { useModelConfigService } from '../../services/modelConfig'
-import type { ModelType } from '../../database/schema'
+import type { ModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireUserSession(event)
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, types, baseUrl, apiKey, remark, isDefault } = body
+  const { name, baseUrl, apiKey, modelTypeConfigs, remark, isDefault } = body
 
   // 构建更新数据
   const updateData: Record<string, any> = {}
@@ -28,17 +28,22 @@ export default defineEventHandler(async (event) => {
     updateData.name = name.trim()
   }
 
-  if (types !== undefined) {
-    const validTypes: ModelType[] = ['midjourney', 'gemini']
-    if (!Array.isArray(types) || types.length === 0) {
-      throw createError({ statusCode: 400, message: '请至少选择一种模型类型' })
+  if (modelTypeConfigs !== undefined) {
+    const validModelTypes: ModelType[] = ['midjourney', 'gemini', 'flux', 'dalle', 'gpt4o-image', 'grok-image']
+    const validApiFormats: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat']
+
+    if (!Array.isArray(modelTypeConfigs) || modelTypeConfigs.length === 0) {
+      throw createError({ statusCode: 400, message: '请至少添加一种模型类型' })
     }
-    for (const t of types) {
-      if (!validTypes.includes(t)) {
-        throw createError({ statusCode: 400, message: `不支持的模型类型: ${t}` })
+    for (const mtc of modelTypeConfigs) {
+      if (!validModelTypes.includes(mtc.modelType)) {
+        throw createError({ statusCode: 400, message: `不支持的模型类型: ${mtc.modelType}` })
+      }
+      if (!validApiFormats.includes(mtc.apiFormat)) {
+        throw createError({ statusCode: 400, message: `不支持的API格式: ${mtc.apiFormat}` })
       }
     }
-    updateData.types = types
+    updateData.modelTypeConfigs = modelTypeConfigs
   }
 
   if (baseUrl !== undefined) {
