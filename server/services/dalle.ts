@@ -51,7 +51,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // 文生图
-  async function generateImage(prompt: string, modelName: string = 'dall-e-3', taskId?: number): Promise<GenerateResult> {
+  async function generateImage(prompt: string, modelName: string = 'dall-e-3', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/images/generations`
     const body = {
       model: modelName,
@@ -71,6 +71,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         method: 'POST',
         headers,
         body,
+        signal,
       })
 
       // 记录成功响应
@@ -105,16 +106,16 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // 垫图
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'dall-e-3', taskId?: number): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'dall-e-3', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (images.length === 0) {
-      return generateImage(prompt, modelName, taskId)
+      return generateImage(prompt, modelName, taskId, signal)
     }
 
     const imageDataUrl = images[0]
 
     // Flux 模型：使用 /v1/images/edits 端点和 multipart/form-data
     if (isFluxModel(modelName)) {
-      return generateImageWithRefFlux(prompt, imageDataUrl, modelName, taskId)
+      return generateImageWithRefFlux(prompt, imageDataUrl, modelName, taskId, signal)
     }
 
     // 豆包和其他模型：使用 /v1/images/generations 端点和 JSON
@@ -159,6 +160,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         method: 'POST',
         headers,
         body,
+        signal,
       })
 
       // 记录成功响应
@@ -193,7 +195,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // Flux 专用垫图：使用 multipart/form-data
-  async function generateImageWithRefFlux(prompt: string, imageDataUrl: string, modelName: string, taskId?: number): Promise<GenerateResult> {
+  async function generateImageWithRefFlux(prompt: string, imageDataUrl: string, modelName: string, taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/images/edits`
 
     // 构建 FormData
@@ -225,6 +227,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
           // 不设置 Content-Type，让浏览器自动设置 multipart/form-data
         },
         body: formData,
+        signal,
       })
 
       // 记录成功响应

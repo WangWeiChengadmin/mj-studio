@@ -57,7 +57,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
   }
 
   // 文生图
-  async function generateImage(prompt: string, modelName: string = 'gpt-4o-image', taskId?: number): Promise<GenerateResult> {
+  async function generateImage(prompt: string, modelName: string = 'gpt-4o-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/chat/completions`
     const body = {
       model: modelName,
@@ -74,6 +74,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
         method: 'POST',
         headers,
         body,
+        signal,
       })
 
       if (taskId) {
@@ -110,9 +111,9 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
   }
 
   // 垫图（带参考图）- 使用multimodal输入
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gpt-4o-image', taskId?: number): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gpt-4o-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (images.length === 0) {
-      return generateImage(prompt, modelName, taskId)
+      return generateImage(prompt, modelName, taskId, signal)
     }
 
     const url = `${baseUrl}/v1/chat/completions`
@@ -147,6 +148,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
         method: 'POST',
         headers,
         body,
+        signal,
       })
 
       if (taskId) {

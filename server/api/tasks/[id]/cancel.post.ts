@@ -1,4 +1,4 @@
-// 重试任务 - 重新提交到上游
+// 取消任务 - 将进行中的任务标记为已取消
 import { useTaskService } from '../../../services/task'
 
 export default defineEventHandler(async (event) => {
@@ -31,30 +31,25 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 只允许重试失败的任务
-  if (task.status !== 'failed') {
+  // 只允许取消进行中的任务
+  if (!['pending', 'submitting', 'processing'].includes(task.status)) {
     throw createError({
       statusCode: 400,
-      message: '只能重试失败的任务',
+      message: '只能取消进行中的任务',
     })
   }
 
-  // 重置任务状态并重新提交（重置创建时间以正确计算耗时）
-  await taskService.updateTask(id, {
-    status: 'pending',
-    error: null,
-    upstreamTaskId: null,
-    progress: null,
-    createdAt: new Date(),
-  })
+  // 尝试中止正在进行的 HTTP 请求
+  const aborted = taskService.abortTask(id)
 
-  // 异步提交任务
-  taskService.submitTask(id).catch((err) => {
-    console.error('重试任务失败:', err)
+  // 更新任务状态为已取消
+  await taskService.updateTask(id, {
+    status: 'cancelled',
+    error: '用户取消',
   })
 
   return {
     success: true,
-    message: '任务已重新提交',
+    message: aborted ? '任务已取消，请求已中止' : '任务已取消',
   }
 })

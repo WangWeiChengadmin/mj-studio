@@ -28,7 +28,7 @@ interface GeminiResponse {
 // 工厂函数：根据配置创建Gemini服务实例
 export function createGeminiService(baseUrl: string, apiKey: string) {
   // 生成图像
-  async function generateImage(prompt: string, modelName: string = 'gemini-2.5-flash-image', taskId?: number): Promise<GenerateResult> {
+  async function generateImage(prompt: string, modelName: string = 'gemini-2.5-flash-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (!apiKey) {
       return { success: false, error: 'Gemini API Key 未配置' }
     }
@@ -52,6 +52,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
+        signal,
       })
 
       if (taskId) {
@@ -98,13 +99,13 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
   }
 
   // 垫图（带参考图）- 使用multimodal输入
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gemini-2.5-flash-image', taskId?: number): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = 'gemini-2.5-flash-image', taskId?: number, signal?: AbortSignal): Promise<GenerateResult> {
     if (!apiKey) {
       return { success: false, error: 'Gemini API Key 未配置' }
     }
 
     if (images.length === 0) {
-      return generateImage(prompt, modelName, taskId)
+      return generateImage(prompt, modelName, taskId, signal)
     }
 
     const url = `${baseUrl}/v1beta/models/${modelName}:generateContent?key=${apiKey}`
@@ -145,6 +146,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
+        signal,
       })
 
       if (taskId) {

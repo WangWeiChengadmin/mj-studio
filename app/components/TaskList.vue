@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { tasks, isLoading, currentPage, pageSize, total, executeAction, deleteTask, batchBlur, retryTask, loadTasks } = useTasks()
+const { tasks, isLoading, currentPage, pageSize, total, executeAction, deleteTask, batchBlur, retryTask, cancelTask, loadTasks } = useTasks()
 
 // 批量操作loading状态
 const blurLoading = ref(false)
@@ -23,6 +23,14 @@ async function handleRetry(taskId: number) {
     await retryTask(taskId)
   } catch (error: any) {
     alert(error.data?.message || error.message || '重试失败')
+  }
+}
+
+async function handleCancel(taskId: number) {
+  try {
+    await cancelTask(taskId)
+  } catch (error: any) {
+    alert(error.data?.message || error.message || '取消失败')
   }
 }
 
@@ -125,6 +133,7 @@ function handlePageChange() {
           @action="handleAction(task.id, $event)"
           @remove="handleDelete(task.id)"
           @retry="handleRetry(task.id)"
+          @cancel="handleCancel(task.id)"
         />
       </div>
 

@@ -9,6 +9,19 @@ import { createOpenAIChatService } from './openaiChat'
 import { downloadImage, saveBase64Image, getImageUrl } from './image'
 import type { GenerateResult } from './types'
 
+// 存储每个任务的 AbortController，用于取消请求
+const taskAbortControllers = new Map<number, AbortController>()
+
+// 检查是否为 abort 错误（ofetch 会包装原始错误）
+function isAbortError(error: any): boolean {
+  return (
+    error?.name === 'AbortError' ||
+    error?.cause?.name === 'AbortError' ||
+    error?.message?.includes('aborted') ||
+    error?.message?.includes('abort')
+  )
+}
+
 export function useTaskService() {
   // 创建任务（仅保存到数据库）
   async function createTask(data: {
@@ -211,25 +224,34 @@ export function useTaskService() {
     // 更新状态为提交中
     await updateTask(taskId, { status: 'submitting' })
 
-    // 根据apiFormat选择不同的处理方式
-    switch (task.apiFormat) {
-      case 'mj-proxy':
-        await submitToMJ(task, config)
-        break
-      case 'gemini':
-        await submitToGemini(task, config)
-        break
-      case 'dalle':
-        await submitToDalle(task, config)
-        break
-      case 'openai-chat':
-        await submitToOpenAIChat(task, config)
-        break
-      default:
-        await updateTask(taskId, {
-          status: 'failed',
-          error: `不支持的API格式: ${task.apiFormat}`,
-        })
+    // 创建 AbortController 用于取消请求
+    const controller = new AbortController()
+    taskAbortControllers.set(taskId, controller)
+
+    try {
+      // 根据apiFormat选择不同的处理方式
+      switch (task.apiFormat) {
+        case 'mj-proxy':
+          await submitToMJ(task, config)
+          break
+        case 'gemini':
+          await submitToGemini(task, config, controller.signal)
+          break
+        case 'dalle':
+          await submitToDalle(task, config, controller.signal)
+          break
+        case 'openai-chat':
+          await submitToOpenAIChat(task, config, controller.signal)
+          break
+        default:
+          await updateTask(taskId, {
+            status: 'failed',
+            error: `不支持的API格式: ${task.apiFormat}`,
+          })
+      }
+    } finally {
+      // 请求完成后清理 AbortController
+      taskAbortControllers.delete(taskId)
     }
   }
 
@@ -272,19 +294,24 @@ export function useTaskService() {
   }
 
   // 提交到Gemini（同步API）
-  async function submitToGemini(task: Task, config: ModelConfig): Promise<void> {
+  async function submitToGemini(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
     const gemini = createGeminiService(config.baseUrl, config.apiKey)
     const modelName = task.modelName || 'gemini-2.5-flash-image'
 
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await gemini.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id)
+        result = await gemini.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal)
       } else {
-        result = await gemini.generateImage(task.prompt ?? '', modelName, task.id)
+        result = await gemini.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
+      // 如果是取消导致的错误，不更新状态（由取消逻辑处理）
+      if (isAbortError(error)) {
+        console.log(`[Task ${task.id}] 请求已被取消`)
+        return
+      }
       await updateTask(task.id, {
         status: 'failed',
         error: error.message || 'Gemini生成失败',
@@ -293,19 +320,24 @@ export function useTaskService() {
   }
 
   // 提交到DALL-E（同步API）
-  async function submitToDalle(task: Task, config: ModelConfig): Promise<void> {
+  async function submitToDalle(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
     const dalle = createDalleService(config.baseUrl, config.apiKey)
     const modelName = task.modelName || 'dall-e-3'
 
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id)
+        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal)
       } else {
-        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id)
+        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
+      // 如果是取消导致的错误，不更新状态（由取消逻辑处理）
+      if (isAbortError(error)) {
+        console.log(`[Task ${task.id}] 请求已被取消`)
+        return
+      }
       await updateTask(task.id, {
         status: 'failed',
         error: error.message || 'DALL-E生成失败',
@@ -314,19 +346,24 @@ export function useTaskService() {
   }
 
   // 提交到OpenAI Chat（同步API）
-  async function submitToOpenAIChat(task: Task, config: ModelConfig): Promise<void> {
+  async function submitToOpenAIChat(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
     const openai = createOpenAIChatService(config.baseUrl, config.apiKey)
     const modelName = task.modelName || 'gpt-4o-image'
 
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await openai.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id)
+        result = await openai.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal)
       } else {
-        result = await openai.generateImage(task.prompt ?? '', modelName, task.id)
+        result = await openai.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
+      // 如果是取消导致的错误，不更新状态（由取消逻辑处理）
+      if (isAbortError(error)) {
+        console.log(`[Task ${task.id}] 请求已被取消`)
+        return
+      }
       await updateTask(task.id, {
         status: 'failed',
         error: error.message || 'OpenAI Chat生成失败',
@@ -511,6 +548,18 @@ export function useTaskService() {
     }
   }
 
+  // 中止任务的 HTTP 请求
+  function abortTask(taskId: number): boolean {
+    const controller = taskAbortControllers.get(taskId)
+    if (controller) {
+      controller.abort()
+      taskAbortControllers.delete(taskId)
+      console.log(`[Task ${taskId}] AbortController.abort() 已调用`)
+      return true
+    }
+    return false
+  }
+
   return {
     createTask,
     updateTask,
@@ -525,5 +574,6 @@ export function useTaskService() {
     submitTask,
     syncTaskStatus,
     executeAction,
+    abortTask,
   }
 }

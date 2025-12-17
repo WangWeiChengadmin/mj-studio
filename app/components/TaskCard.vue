@@ -10,6 +10,7 @@ const emit = defineEmits<{
   action: [customId: string]
   remove: []
   retry: []
+  cancel: []
 }>()
 
 const isActioning = ref(false)
@@ -72,6 +73,8 @@ const statusInfo = computed(() => {
       return { text: '已完成', color: 'text-(--ui-success)', icon: 'i-heroicons-check-circle', showBars: false }
     case 'failed':
       return { text: '失败', color: 'text-(--ui-error)', icon: 'i-heroicons-x-circle', showBars: false }
+    case 'cancelled':
+      return { text: '已取消', color: 'text-(--ui-text-muted)', icon: 'i-heroicons-no-symbol', showBars: false }
     default:
       return { text: '未知', color: 'text-(--ui-text-muted)', icon: 'i-heroicons-question-mark-circle', showBars: false }
   }
@@ -285,6 +288,20 @@ function downloadImage() {
         </div>
       </div>
 
+      <!-- 取消按钮（进行中状态，底部居中显示） -->
+      <div
+        v-if="['pending', 'submitting', 'processing'].includes(task.status)"
+        class="absolute bottom-16 left-0 right-0 flex justify-center"
+      >
+        <button
+          class="bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 text-white/80 text-sm hover:bg-(--ui-warning)/70 transition-colors"
+          @click="emit('cancel')"
+        >
+          <UIcon name="i-heroicons-stop" class="w-4 h-4 inline mr-1" />
+          取消任务
+        </button>
+      </div>
+
       <!-- 状态角标 -->
       <div
         v-if="task.imageUrl && task.status !== 'success'"
@@ -325,7 +342,7 @@ function downloadImage() {
         </UDropdownMenu>
         <!-- 重试按钮 -->
         <button
-          v-if="task.status === 'failed'"
+          v-if="task.status === 'failed' || task.status === 'cancelled'"
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="重试"
           @click="emit('retry')"

@@ -231,6 +231,29 @@ export function useTasks() {
     }
   }
 
+  // 取消进行中的任务
+  async function cancelTask(taskId: number) {
+    try {
+      await $fetch(`/api/tasks/${taskId}/cancel`, { method: 'POST' })
+
+      // 停止轮询
+      stopPolling(taskId)
+
+      // 更新本地状态为cancelled
+      const index = tasks.value.findIndex((t) => t.id === taskId)
+      if (index >= 0) {
+        tasks.value[index] = {
+          ...tasks.value[index],
+          status: 'cancelled',
+          error: '用户取消',
+        }
+      }
+    } catch (error: any) {
+      console.error('取消任务失败:', error)
+      throw error
+    }
+  }
+
   // 清理所有轮询（组件卸载时调用）
   function cleanup() {
     pollingIntervals.forEach((_, taskId) => stopPolling(taskId))
@@ -248,6 +271,7 @@ export function useTasks() {
     deleteTask,
     batchBlur,
     retryTask,
+    cancelTask,
     cleanup,
     startPolling,
   }

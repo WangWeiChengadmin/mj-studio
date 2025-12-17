@@ -79,7 +79,7 @@ export type ModelConfig = typeof modelConfigs.$inferSelect
 export type NewModelConfig = typeof modelConfigs.$inferInsert
 
 // 任务状态
-export type TaskStatus = 'pending' | 'submitting' | 'processing' | 'success' | 'failed'
+export type TaskStatus = 'pending' | 'submitting' | 'processing' | 'success' | 'failed' | 'cancelled'
 
 // 任务表
 export const tasks = sqliteTable('tasks', {
