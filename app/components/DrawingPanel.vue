@@ -194,6 +194,17 @@ async function handleSubmit() {
     isSubmitting.value = false
   }
 }
+
+// 设置面板内容（供外部调用）
+function setContent(newPrompt: string | null, images: string[]) {
+  prompt.value = newPrompt || ''
+  referenceImages.value = images.slice(0, 3) // 最多3张
+}
+
+// 暴露给父组件
+defineExpose({
+  setContent,
+})
 </script>
 
 <template>

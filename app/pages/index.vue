@@ -9,6 +9,9 @@ const { configs: modelConfigs, loadConfigs } = useModelConfigs()
 const toast = useToast()
 const router = useRouter()
 
+// DrawingPanel 组件引用
+const drawingPanelRef = ref<{ setContent: (prompt: string | null, images: string[]) => void } | null>(null)
+
 // 页面加载时获取数据
 onMounted(() => {
   loadTasks()
@@ -51,6 +54,15 @@ async function handleLogout() {
   await $fetch('/api/auth/logout', { method: 'POST' })
   await logout()
   router.push('/login')
+}
+
+// 复制任务内容到工作台
+function handleCopyToPanel(prompt: string | null, images: string[]) {
+  drawingPanelRef.value?.setContent(prompt, images)
+  toast.add({
+    title: '已复制到工作台',
+    color: 'success',
+  })
 }
 
 onUnmounted(() => {
@@ -99,12 +111,12 @@ onUnmounted(() => {
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- 左侧：绘图面板 -->
         <div class="lg:col-span-1">
-          <DrawingPanel :model-configs="modelConfigs" @submit="handleSubmit" />
+          <DrawingPanel ref="drawingPanelRef" :model-configs="modelConfigs" @submit="handleSubmit" />
         </div>
 
         <!-- 右侧：任务列表 -->
         <div class="lg:col-span-2">
-          <TaskList />
+          <TaskList @copy-to-panel="handleCopyToPanel" />
         </div>
       </div>
     </div>
