@@ -239,6 +239,30 @@ function downloadImage() {
   a.target = '_blank'
   a.click()
 }
+
+// 错误详情
+const showErrorDetailModal = ref(false)
+const errorLogs = ref<{ request: any; response: any } | null>(null)
+const loadingErrorLogs = ref(false)
+
+async function showErrorDetail() {
+  loadingErrorLogs.value = true
+  showErrorDetailModal.value = true
+
+  try {
+    const logs = await $fetch(`/api/tasks/${props.task.id}/logs`)
+    errorLogs.value = logs
+  } catch (error: any) {
+    // 日志不存在时不显示详情（可能是网络错误/超时等无响应情况）
+    if (error?.statusCode === 404) {
+      errorLogs.value = null
+      toast.add({ title: '无详情', description: '此错误无响应日志', color: 'warning' })
+      showErrorDetailModal.value = false
+    }
+  } finally {
+    loadingErrorLogs.value = false
+  }
+}
 </script>
 
 <template>
@@ -271,9 +295,17 @@ function downloadImage() {
           />
           <p :class="['text-sm mb-2', statusInfo.color]">{{ statusInfo.text }}</p>
           <!-- 失败时显示错误信息 -->
-          <p v-if="task.error" class="text-(--ui-error) text-xs leading-relaxed line-clamp-4 px-2">
+          <p v-if="task.error" class="text-(--ui-error) text-xs leading-relaxed line-clamp-3 px-2 mb-2">
             {{ task.error }}
           </p>
+          <!-- 查看详情按钮 -->
+          <button
+            v-if="task.error && task.status === 'failed'"
+            class="text-xs text-(--ui-text-muted) hover:text-(--ui-text) underline underline-offset-2"
+            @click="showErrorDetail"
+          >
+            查看详情
+          </button>
         </div>
       </div>
 
@@ -543,6 +575,75 @@ function downloadImage() {
                 {{ index + 1 }} / {{ task.images.length }}
               </div>
             </div>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- 错误详情 Modal -->
+    <UModal v-model:open="showErrorDetailModal" :ui="{ content: 'sm:max-w-2xl' }">
+      <template #content>
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-medium text-(--ui-text)">错误详情</h3>
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-(--ui-bg-accented) transition-colors"
+              @click="showErrorDetailModal = false"
+            >
+              <UIcon name="i-heroicons-x-mark" class="w-5 h-5 text-(--ui-text-muted)" />
+            </button>
+          </div>
+
+          <!-- 加载中 -->
+          <div v-if="loadingErrorLogs" class="text-center py-8">
+            <BarsLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
+            <p class="text-(--ui-text-muted) text-sm">加载中...</p>
+          </div>
+
+          <!-- 日志内容 -->
+          <div v-else-if="errorLogs" class="space-y-4">
+            <!-- 请求信息 -->
+            <div v-if="errorLogs.request">
+              <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">请求</h4>
+              <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-2">
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="font-mono text-(--ui-info)">{{ errorLogs.request.method }}</span>
+                  <span class="font-mono text-(--ui-text) text-xs break-all">{{ errorLogs.request.url }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 响应信息 -->
+            <div v-if="errorLogs.response">
+              <h4 class="text-sm font-medium text-(--ui-text-muted) mb-2">响应</h4>
+              <div class="bg-(--ui-bg-muted) rounded-lg p-3 space-y-3">
+                <!-- 状态码 -->
+                <div class="flex items-center gap-2 text-sm">
+                  <span class="text-(--ui-text-muted)">状态码</span>
+                  <span
+                    class="font-mono font-medium"
+                    :class="errorLogs.response.status >= 400 ? 'text-(--ui-error)' : 'text-(--ui-success)'"
+                  >
+                    {{ errorLogs.response.status }} {{ errorLogs.response.statusText }}
+                  </span>
+                </div>
+                <!-- 响应体 -->
+                <div>
+                  <span class="text-(--ui-text-muted) text-sm block mb-1">响应内容</span>
+                  <pre class="bg-(--ui-bg) rounded p-2 text-xs overflow-x-auto max-h-64 text-(--ui-text)">{{ JSON.stringify(errorLogs.response.data, null, 2) }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 无日志 -->
+          <div v-else class="text-center py-8">
+            <UIcon name="i-heroicons-document-magnifying-glass" class="w-12 h-12 mx-auto mb-2 text-(--ui-text-dimmed)" />
+            <p class="text-(--ui-text-muted) text-sm">无日志记录</p>
+          </div>
+
+          <div class="mt-6 flex justify-end">
+            <UButton variant="outline" color="neutral" @click="showErrorDetailModal = false">关闭</UButton>
           </div>
         </div>
       </template>

@@ -3,6 +3,7 @@
 
 import type { GenerateResult } from './types'
 import { logRequest, logResponse } from './logger'
+import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
 
 interface GeminiResponse {
   candidates: Array<{
@@ -83,7 +84,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       }
 
       const textPart = candidate.content?.parts?.find(part => part.text)
-      return { success: false, error: textPart?.text || '未生成图像' }
+      return { success: false, error: textPart?.text || ERROR_MESSAGES.EMPTY_RESPONSE }
     } catch (error: any) {
       if (taskId) {
         logResponse(taskId, {
@@ -93,8 +94,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
           data: error.data,
         })
       }
-      const errorMessage = error.data?.error?.message || error.message || '调用Gemini API失败'
-      return { success: false, error: errorMessage }
+      return { success: false, error: classifyFetchError(error) }
     }
   }
 
@@ -176,7 +176,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
       }
 
       const textPart = candidate.content?.parts?.find(part => part.text)
-      return { success: false, error: textPart?.text || '未生成图像' }
+      return { success: false, error: textPart?.text || ERROR_MESSAGES.EMPTY_RESPONSE }
     } catch (error: any) {
       if (taskId) {
         logResponse(taskId, {
@@ -186,8 +186,7 @@ export function createGeminiService(baseUrl: string, apiKey: string) {
           data: error.data,
         })
       }
-      const errorMessage = error.data?.error?.message || error.message || '调用Gemini API失败'
-      return { success: false, error: errorMessage }
+      return { success: false, error: classifyFetchError(error) }
     }
   }
 

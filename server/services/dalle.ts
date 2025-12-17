@@ -7,6 +7,7 @@
 
 import type { GenerateResult } from './types'
 import { logRequest, logResponse } from './logger'
+import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
 
 interface DalleResponse {
   created: number
@@ -81,7 +82,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       const imageData = response.data?.[0]
       if (!imageData) {
-        return { success: false, error: '未收到图片数据' }
+        return { success: false, error: ERROR_MESSAGES.EMPTY_RESPONSE }
       }
 
       return {
@@ -100,8 +101,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         })
       }
 
-      const errorMessage = error.data?.error?.message || error.data?.message || error.message || '调用API失败'
-      return { success: false, error: errorMessage }
+      return { success: false, error: classifyFetchError(error) }
     }
   }
 
@@ -170,7 +170,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       const imageData = response.data?.[0]
       if (!imageData) {
-        return { success: false, error: '未收到图片数据' }
+        return { success: false, error: ERROR_MESSAGES.EMPTY_RESPONSE }
       }
 
       return {
@@ -189,8 +189,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         })
       }
 
-      const errorMessage = error.data?.error?.message || error.data?.message || error.message || '垫图失败'
-      return { success: false, error: errorMessage }
+      return { success: false, error: classifyFetchError(error) }
     }
   }
 
@@ -237,7 +236,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
 
       const imageData = response.data?.[0]
       if (!imageData) {
-        return { success: false, error: '未收到图片数据' }
+        return { success: false, error: ERROR_MESSAGES.EMPTY_RESPONSE }
       }
 
       return {
@@ -256,8 +255,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         })
       }
 
-      const errorMessage = error.data?.error?.message || error.data?.message || error.message || 'Flux垫图失败'
-      return { success: false, error: errorMessage }
+      return { success: false, error: classifyFetchError(error) }
     }
   }
 

@@ -4,6 +4,7 @@
 
 import type { GenerateResult } from './types'
 import { logRequest, logResponse } from './logger'
+import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
 
 interface OpenAIChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -85,7 +86,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       const imageUrl = extractImageUrl(content)
 
       if (!imageUrl) {
-        return { success: false, error: '未能从响应中提取图片: ' + content.slice(0, 200) }
+        return { success: false, error: ERROR_MESSAGES.PARSE_ERROR }
       }
 
       if (imageUrl.startsWith('data:image/')) {
@@ -105,8 +106,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
           data: error.data,
         })
       }
-      const errorMessage = error.data?.error?.message || error.message || '调用OpenAI Chat API失败'
-      return { success: false, error: errorMessage }
+      return { success: false, error: classifyFetchError(error) }
     }
   }
 
@@ -159,7 +159,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
       const imageUrl = extractImageUrl(content)
 
       if (!imageUrl) {
-        return { success: false, error: '未能从响应中提取图片: ' + content.slice(0, 200) }
+        return { success: false, error: ERROR_MESSAGES.PARSE_ERROR }
       }
 
       if (imageUrl.startsWith('data:image/')) {
@@ -179,8 +179,7 @@ export function createOpenAIChatService(baseUrl: string, apiKey: string) {
           data: error.data,
         })
       }
-      const errorMessage = error.data?.error?.message || error.message || '垫图失败'
-      return { success: false, error: errorMessage }
+      return { success: false, error: classifyFetchError(error) }
     }
   }
 

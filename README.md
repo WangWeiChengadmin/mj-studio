@@ -122,3 +122,4 @@ pnpm dev
 ## 文档
 
 - [**DEVELOPMENT.md**](DEVELOPMENT.md) - **开发前必读**：目录结构、API 格式说明、日志系统
+- [**docs/ERROR_SPEC.md**](docs/ERROR_SPEC.md) - 错误信息规范：错误分类、识别规则、展示规范

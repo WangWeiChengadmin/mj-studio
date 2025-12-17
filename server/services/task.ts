@@ -7,6 +7,8 @@ import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
 import { downloadImage, saveBase64Image, getImageUrl } from './image'
+import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
+import { logResponse } from './logger'
 import type { GenerateResult } from './types'
 
 // 存储每个任务的 AbortController，用于取消请求
@@ -386,7 +388,7 @@ export function useTaskService() {
       if (result.code !== 1) {
         await updateTask(task.id, {
           status: 'failed',
-          error: result.description || '提交到MJ失败',
+          error: result.description || ERROR_MESSAGES.UNKNOWN,
         })
         return
       }
@@ -399,7 +401,7 @@ export function useTaskService() {
     } catch (error: any) {
       await updateTask(task.id, {
         status: 'failed',
-        error: error.message || '提交到MJ失败',
+        error: classifyFetchError(error),
       })
     }
   }
@@ -449,11 +451,27 @@ export function useTaskService() {
         await updateEstimatedTime(config, task.modelType, task.createdAt)
       }
 
+      // 对 MJ 的 failReason 进行分类
+      let error: string | null = null
+      if (mjTask.failReason) {
+        error = classifyError({ message: mjTask.failReason })
+        // 任务失败时，记录轮询响应到日志（覆盖提交成功的日志）
+        logResponse(taskId, {
+          status: 200,
+          statusText: 'OK (Poll)',
+          data: {
+            status: mjTask.status,
+            failReason: mjTask.failReason,
+            progress: mjTask.progress,
+          },
+        })
+      }
+
       return await updateTask(taskId, {
         status,
         progress: mjTask.progress || null,
         imageUrl,
-        error: mjTask.failReason || null,
+        error,
         buttons: mjTask.buttons || null,
       })
     } catch (error: any) {
@@ -528,7 +546,7 @@ export function useTaskService() {
       if (result.code !== 1) {
         await updateTask(newTask.id, {
           status: 'failed',
-          error: result.description || '执行动作失败',
+          error: result.description || ERROR_MESSAGES.UNKNOWN,
         })
         return (await getTask(newTask.id))!
       }
@@ -542,7 +560,7 @@ export function useTaskService() {
     } catch (error: any) {
       await updateTask(newTask.id, {
         status: 'failed',
-        error: error.message || '执行动作失败',
+        error: classifyFetchError(error),
       })
       return (await getTask(newTask.id))!
     }

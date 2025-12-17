@@ -31,11 +31,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 只允许重试失败的任务
-  if (task.status !== 'failed') {
+  // 只允许重试失败或已取消的任务
+  if (task.status !== 'failed' && task.status !== 'cancelled') {
     throw createError({
       statusCode: 400,
-      message: '只能重试失败的任务',
+      message: '只能重试失败或已取消的任务',
     })
   }
 
