@@ -196,13 +196,22 @@ function handleDelete(id: number) {
       >
         <div
           class="inline-block px-4 py-2 rounded-2xl"
-          :class="message.role === 'user'
-            ? 'bg-(--ui-primary) text-white rounded-tr-sm'
-            : 'bg-(--ui-bg-elevated) rounded-tl-sm'"
+          :class="[
+            message.role === 'user'
+              ? 'bg-(--ui-primary) text-white rounded-tr-sm'
+              : message.isError
+                ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-tl-sm'
+                : 'bg-(--ui-bg-elevated) rounded-tl-sm'
+          ]"
         >
           <!-- 用户消息：纯文本 -->
           <div v-if="message.role === 'user'" class="whitespace-pre-wrap break-words text-sm">
             {{ message.content }}
+          </div>
+          <!-- 错误消息 -->
+          <div v-else-if="message.isError" class="text-sm flex items-start gap-2">
+            <UIcon name="i-heroicons-exclamation-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span class="whitespace-pre-wrap break-words">{{ message.content }}</span>
           </div>
           <!-- 助手消息：Markdown 渲染 -->
           <div v-else class="text-sm">

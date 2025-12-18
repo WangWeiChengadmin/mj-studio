@@ -101,6 +101,8 @@ export function createChatService(config: ModelConfig) {
       stream: true,
     }
 
+    console.log('[Chat] 发送请求:', url, 'model:', modelName)
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -110,9 +112,14 @@ export function createChatService(config: ModelConfig) {
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        yield { content: '', done: true }
-        throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`)
+        const errorText = await response.text()
+        console.error('[Chat] 错误响应:', response.status, errorText)
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+        try {
+          const errorData = JSON.parse(errorText)
+          errorMessage = errorData.error?.message || errorMessage
+        } catch {}
+        throw new Error(errorMessage)
       }
 
       const reader = response.body?.getReader()

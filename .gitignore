@@ -36,6 +36,7 @@ node-compile-cache/
 
 # 临时文件
 todo.md
+image.png
 
 # docker 文件
 docker-compose.override.yml

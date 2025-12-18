@@ -177,7 +177,7 @@ function handleInput() {
       />
       <UButton
         color="primary"
-        size="lg"
+        class="h-[48px] w-[48px] flex-shrink-0"
         :disabled="!content.trim() || disabled || !selectedConfigId || !selectedModelName"
         @click="handleSend"
       >

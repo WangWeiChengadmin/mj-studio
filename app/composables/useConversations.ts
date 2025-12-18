@@ -7,6 +7,7 @@ export interface Message {
   modelConfigId: number | null
   modelName: string | null
   createdAt: string
+  isError?: boolean
 }
 
 export interface Conversation {
@@ -68,7 +69,8 @@ export function useConversations() {
     streamingContent.value = displayedContent
 
     const lastMessage = messages.value[messages.value.length - 1]
-    if (lastMessage?.role === 'assistant') {
+    // 错误消息不覆盖
+    if (lastMessage?.role === 'assistant' && !lastMessage.isError) {
       lastMessage.content = displayedContent
     }
   }
@@ -176,7 +178,7 @@ export function useConversations() {
   }
 
   // 发送消息（流式）
-  async function sendMessage(conversationId: number, content: string) {
+  async function sendMessage(conversationId: number, content: string, modelName?: string | null) {
     isStreaming.value = true
     streamingContent.value = ''
     contentBuffer = ''
@@ -201,8 +203,9 @@ export function useConversations() {
       role: 'assistant',
       content: '',
       modelConfigId: null,
-      modelName: null,
+      modelName: modelName || null,
       createdAt: new Date().toISOString(),
+      isError: false,
     }
     messages.value.push(tempAssistantMessage)
 
@@ -255,8 +258,12 @@ export function useConversations() {
               contentBuffer += parsed.content
               startTyping()
             }
-          } catch (e) {
-            // 忽略解析错误
+          } catch (e: any) {
+            // 如果是应用错误（非 JSON 解析错误），重新抛出
+            if (e.message && !e.message.includes('JSON')) {
+              throw e
+            }
+            // JSON 解析错误则忽略
           }
         }
       }
@@ -273,9 +280,18 @@ export function useConversations() {
     } catch (error: any) {
       // 停止打字机效果
       flushTyping()
-      // 移除临时助手消息
-      messages.value.pop()
-      throw error
+      // 将错误显示在助手消息中
+      const lastIndex = messages.value.length - 1
+      const lastMessage = messages.value[lastIndex]
+      if (lastMessage?.role === 'assistant') {
+        // 替换整个对象以确保 Vue 响应式更新
+        messages.value[lastIndex] = {
+          ...lastMessage,
+          content: error.message || '发送失败',
+          isError: true,
+        }
+      }
+      // 不抛出错误，让错误显示在对话中
     } finally {
       // 确保所有内容都显示完毕
       flushTyping()

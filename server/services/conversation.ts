@@ -94,6 +94,7 @@ export function useConversationService() {
     content: string
     modelConfigId?: number
     modelName?: string
+    isError?: boolean
   }): Promise<Message> {
     const [message] = await db.insert(messages).values({
       conversationId: data.conversationId,
@@ -101,6 +102,7 @@ export function useConversationService() {
       content: data.content,
       modelConfigId: data.modelConfigId ?? null,
       modelName: data.modelName ?? null,
+      isError: data.isError ?? false,
     }).returning()
 
     // 更新对话时间

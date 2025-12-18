@@ -118,6 +118,7 @@ export const messages = sqliteTable('messages', {
   content: text('content').notNull(),
   modelConfigId: integer('model_config_id'), // 使用的上游ID，仅assistant消息
   modelName: text('model_name'), // 使用的模型名，仅assistant消息
+  isError: integer('is_error', { mode: 'boolean' }).default(false), // 是否为错误消息
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

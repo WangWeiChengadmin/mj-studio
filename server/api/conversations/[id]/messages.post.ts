@@ -101,8 +101,18 @@ export default defineEventHandler(async (event) => {
 
       return
     } catch (error: any) {
-      // 发送错误
-      const errorData = JSON.stringify({ error: error.message || '生成失败', done: true })
+      const errorMessage = error.message || '生成失败'
+      // 保存错误消息到数据库
+      await conversationService.addMessage({
+        conversationId,
+        role: 'assistant',
+        content: errorMessage,
+        modelConfigId: assistant.modelConfigId,
+        modelName: assistant.modelName,
+        isError: true,
+      })
+      // 发送错误到前端
+      const errorData = JSON.stringify({ error: errorMessage, done: true })
       event.node.res.write(`data: ${errorData}\n\n`)
       return
     }

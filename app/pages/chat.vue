@@ -176,7 +176,7 @@ async function handleSendMessage(content: string) {
   if (!conversationId) return
 
   try {
-    await sendMessage(conversationId, content)
+    await sendMessage(conversationId, content, currentAssistant.value?.modelName)
   } catch (error: any) {
     toast.add({ title: error.message || '发送失败', color: 'error' })
   }
