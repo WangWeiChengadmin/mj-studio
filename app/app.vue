@@ -1,7 +1,7 @@
 <template>
   <UApp>
-    <div class="min-h-screen bg-(--ui-bg)">
+    <NuxtLayout>
       <NuxtPage />
-    </div>
+    </NuxtLayout>
   </UApp>
 </template>

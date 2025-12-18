@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { Task } from '~/composables/useTasks'
 import { encodeTaskId } from '~/utils/sqids'
-import type { ImageModelType, ApiFormat } from '../shared/types'
+import type { ImageModelType, ApiFormat } from '../../shared/types'
 import {
   TASK_CARD_MODEL_DISPLAY,
   API_FORMAT_LABELS,
   DEFAULT_FALLBACK_ESTIMATED_TIME,
   PROGRESS_UPDATE_INTERVAL_MS,
   PROGRESS_TIME_BUFFER_RATIO,
-} from '../shared/constants'
+} from '../../shared/constants'
 
 const props = defineProps<{
   task: Task
@@ -311,7 +311,7 @@ async function showErrorDetail() {
       >
         <div class="text-center">
           <!-- 竖线加载动画 -->
-          <BarsLoader
+          <DrawingLoader
             v-if="statusInfo.showBars"
             :class="['w-12 h-12 mb-2', statusInfo.color]"
           />
@@ -603,7 +603,7 @@ async function showErrorDetail() {
       <template #body>
         <!-- 加载中 -->
         <div v-if="loadingErrorLogs" class="text-center py-8">
-          <BarsLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
+          <DrawingLoader class="w-8 h-8 mx-auto mb-2 text-(--ui-primary)" />
           <p class="text-(--ui-text-muted) text-sm">加载中...</p>
         </div>
 

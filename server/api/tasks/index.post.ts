@@ -3,6 +3,9 @@ import { useTaskService } from '../../services/task'
 import { useModelConfigService } from '../../services/modelConfig'
 import type { ModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
 import { IMAGE_MODEL_TYPES, API_FORMATS } from '../../../app/shared/constants'
+import { eq } from 'drizzle-orm'
+import { users } from '../../database/schema'
+import { db } from '../../database'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
@@ -79,6 +82,12 @@ export default defineEventHandler(async (event) => {
 
   const taskService = useTaskService()
 
+  // 获取用户的 blurByDefault 设置
+  const [userData] = await db.select({ blurByDefault: users.blurByDefault })
+    .from(users)
+    .where(eq(users.id, user.id))
+    .limit(1)
+
   // 1. 先保存到数据库
   const task = await taskService.createTask({
     userId: user.id,
@@ -89,6 +98,7 @@ export default defineEventHandler(async (event) => {
     prompt,
     images: base64Array,
     type,
+    isBlurred: userData?.blurByDefault ?? true,
   })
 
   // 2. 异步提交到对应的生成服务（不阻塞响应）

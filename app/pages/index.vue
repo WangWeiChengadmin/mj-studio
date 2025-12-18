@@ -1,131 +1,78 @@
 <script setup lang="ts">
-definePageMeta({
-  middleware: 'auth',
-})
-
-const { user, clear: logout } = useUserSession()
-const { addTask, cleanup, loadTasks } = useTasks()
-const { configs: modelConfigs, loadConfigs } = useModelConfigs()
-const toast = useToast()
-const router = useRouter()
-
-// DrawingPanel 组件引用
-const drawingPanelRef = ref<{ setContent: (prompt: string | null, images: string[]) => void } | null>(null)
-
-// 页面加载时获取数据
-onMounted(() => {
-  loadTasks()
-  loadConfigs()
-})
-
-async function handleSubmit(prompt: string, images: string[], modelConfigId: number, modelType: string, apiFormat: string, modelName: string) {
-  try {
-    const result = await $fetch<{ success: boolean; taskId: number; message: string }>('/api/tasks', {
-      method: 'POST',
-      body: {
-        prompt,
-        base64Array: images,
-        type: images.length > 0 && !prompt ? 'blend' : 'imagine',
-        modelConfigId,
-        modelType,
-        apiFormat,
-        modelName,
-      },
-    })
-
-    if (result.success && result.taskId) {
-      await addTask(result.taskId)
-      toast.add({
-        title: '任务已创建',
-        description: result.message,
-        color: 'success',
-      })
-    }
-  } catch (error: any) {
-    toast.add({
-      title: '提交失败',
-      description: error.data?.message || error.message || '请稍后重试',
-      color: 'error',
-    })
-  }
-}
-
-async function handleLogout() {
-  await $fetch('/api/auth/logout', { method: 'POST' })
-  await logout()
-  router.push('/login')
-}
-
-// 复制任务内容到工作台
-function handleCopyToPanel(prompt: string | null, images: string[]) {
-  drawingPanelRef.value?.setContent(prompt, images)
-  toast.add({
-    title: '已复制到工作台',
-    color: 'success',
-  })
-}
-
-onUnmounted(() => {
-  cleanup()
-})
+// 首页无需登录
+const { loggedIn } = useUserSession()
 </script>
 
 <template>
-  <div class="min-h-screen p-6">
-    <div class="max-w-7xl mx-auto">
-      <!-- 头部 -->
-      <header class="mb-8 flex items-center justify-between">
-        <div>
-          <h1 class="text-3xl font-bold text-(--ui-text) mb-2">
+  <div class="flex-1 flex flex-col">
+    <!-- Hero Section -->
+    <section class="flex-1 flex items-center justify-center px-6 py-20">
+      <div class="max-w-4xl mx-auto text-center">
+        <!-- Logo -->
+        <div class="mb-8">
+          <UIcon name="i-heroicons-sparkles" class="w-16 h-16 text-(--ui-primary) mx-auto mb-4" />
+          <h1 class="text-5xl font-bold mb-4">
             <span class="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               MJ Studio
             </span>
           </h1>
-          <p class="text-(--ui-text-muted)">多模型 AI 绘图工作台</p>
+          <p class="text-xl text-(--ui-text-muted)">多模型 AI 绘图工作台</p>
         </div>
 
-        <!-- 用户信息 -->
-        <div class="flex items-center gap-4">
-          <!-- 对话入口 -->
-          <NuxtLink to="/chat">
-            <UButton variant="ghost" size="sm">
-              <UIcon name="i-heroicons-chat-bubble-left-right" class="w-4 h-4 mr-1" />
-              对话
+        <!-- 特性介绍 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div class="p-6 rounded-2xl bg-(--ui-bg-elevated) border border-(--ui-border)">
+            <UIcon name="i-heroicons-paint-brush" class="w-10 h-10 text-purple-500 mx-auto mb-4" />
+            <h3 class="text-lg font-medium text-(--ui-text) mb-2">AI 绘图</h3>
+            <p class="text-sm text-(--ui-text-muted)">
+              支持 Midjourney、DALL-E、Flux、Gemini 等多种 AI 绘图模型
+            </p>
+          </div>
+          <div class="p-6 rounded-2xl bg-(--ui-bg-elevated) border border-(--ui-border)">
+            <UIcon name="i-heroicons-chat-bubble-left-right" class="w-10 h-10 text-blue-500 mx-auto mb-4" />
+            <h3 class="text-lg font-medium text-(--ui-text) mb-2">AI 对话</h3>
+            <p class="text-sm text-(--ui-text-muted)">
+              创建专属 AI 助手，支持自定义系统提示词和对话管理
+            </p>
+          </div>
+          <div class="p-6 rounded-2xl bg-(--ui-bg-elevated) border border-(--ui-border)">
+            <UIcon name="i-heroicons-server" class="w-10 h-10 text-green-500 mx-auto mb-4" />
+            <h3 class="text-lg font-medium text-(--ui-text) mb-2">多上游支持</h3>
+            <p class="text-sm text-(--ui-text-muted)">
+              灵活配置多个 API 上游，轻松切换不同服务提供商
+            </p>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="flex justify-center gap-4">
+          <NuxtLink v-if="loggedIn" to="/drawing">
+            <UButton size="lg" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+              <UIcon name="i-heroicons-paint-brush" class="w-5 h-5 mr-2" />
+              开始绘图
             </UButton>
           </NuxtLink>
-          <!-- 颜色模式切换 -->
-          <UColorModeButton />
-          <NuxtLink to="/settings" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors" title="设置">
-            <UIcon name="i-heroicons-cog-6-tooth" class="w-5 h-5" />
+          <NuxtLink v-else to="/login">
+            <UButton size="lg" class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+              <UIcon name="i-heroicons-arrow-right-end-on-rectangle" class="w-5 h-5 mr-2" />
+              登录开始
+            </UButton>
           </NuxtLink>
-          <div class="text-right">
-            <p class="text-(--ui-text) text-sm">{{ user?.name || user?.email }}</p>
-            <p class="text-(--ui-text-dimmed) text-xs">{{ user?.email }}</p>
-          </div>
-          <UButton
-            variant="ghost"
-            color="neutral"
-            size="sm"
-            @click="handleLogout"
-          >
-            <UIcon name="i-heroicons-arrow-right-on-rectangle" class="w-4 h-4 mr-1" />
-            登出
-          </UButton>
-        </div>
-      </header>
-
-      <!-- 主内容 -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- 左侧：绘图面板 -->
-        <div class="lg:col-span-1">
-          <DrawingPanel ref="drawingPanelRef" :model-configs="modelConfigs" @submit="handleSubmit" />
-        </div>
-
-        <!-- 右侧：任务列表 -->
-        <div class="lg:col-span-2">
-          <TaskList @copy-to-panel="handleCopyToPanel" />
+          <NuxtLink v-if="loggedIn" to="/chat">
+            <UButton size="lg" variant="outline">
+              <UIcon name="i-heroicons-chat-bubble-left-right" class="w-5 h-5 mr-2" />
+              AI 对话
+            </UButton>
+          </NuxtLink>
         </div>
       </div>
-    </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-6 border-t border-(--ui-border)">
+      <div class="max-w-7xl mx-auto px-6 text-center text-sm text-(--ui-text-dimmed)">
+        MJ Studio - 多模型 AI 创作平台
+      </div>
+    </footer>
   </div>
 </template>

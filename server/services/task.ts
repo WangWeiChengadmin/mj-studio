@@ -36,6 +36,7 @@ export function useTaskService() {
     prompt?: string
     images?: string[]
     type?: 'imagine' | 'blend'
+    isBlurred?: boolean
   }): Promise<Task> {
     const [task] = await db.insert(tasks).values({
       userId: data.userId,
@@ -47,6 +48,7 @@ export function useTaskService() {
       images: data.images ?? [],
       type: data.type ?? 'imagine',
       status: 'pending',
+      isBlurred: data.isBlurred ?? true,
     }).returning()
     return task
   }

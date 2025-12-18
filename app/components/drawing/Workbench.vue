@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ModelConfig } from '~/composables/useTasks'
-import type { ModelCategory, ImageModelType, ApiFormat, ModelTypeConfig } from '../shared/types'
+import type { ImageModelType, ApiFormat, ModelTypeConfig } from '../../shared/types'
 import {
   MODEL_TYPE_LABELS,
   MODEL_TYPE_ICONS,
@@ -9,7 +9,7 @@ import {
   MODELS_WITHOUT_REFERENCE_IMAGE,
   MAX_REFERENCE_IMAGE_SIZE_BYTES,
   MAX_REFERENCE_IMAGE_COUNT,
-} from '../shared/constants'
+} from '../../shared/constants'
 
 const props = defineProps<{
   modelConfigs: ModelConfig[]
@@ -19,11 +19,12 @@ const emit = defineEmits<{
   submit: [prompt: string, images: string[], modelConfigId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
 }>()
 
+const toast = useToast()
 const prompt = ref('')
 const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
 const selectedConfigId = ref<number | null>(null)
-const selectedModelName = ref<string | null>(null)  // 用 modelName 唯一标识选中的模型
+const selectedModelName = ref<string | null>(null)
 
 // 选中的模型配置
 const selectedConfig = computed(() => {
@@ -41,7 +42,6 @@ const selectedModelTypeConfig = computed((): ModelTypeConfig | undefined => {
 // 当前配置支持的模型类型列表（仅绘图模型）
 const availableModelTypes = computed((): ModelTypeConfig[] => {
   if (!selectedConfig.value?.modelTypeConfigs) return []
-  // 过滤掉对话模型，只显示绘图模型
   return selectedConfig.value.modelTypeConfigs.filter(
     (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
   )
@@ -50,7 +50,6 @@ const availableModelTypes = computed((): ModelTypeConfig[] => {
 // 是否支持垫图（部分模型不支持）
 const supportsReferenceImages = computed(() => {
   if (!selectedModelTypeConfig.value?.apiFormat) return false
-  // 检查是否在不支持垫图的模型列表中（使用共享常量）
   if (MODELS_WITHOUT_REFERENCE_IMAGE.includes(selectedModelTypeConfig.value.modelType as ImageModelType)) return false
   return true
 })
@@ -61,12 +60,27 @@ const currentModelHint = computed(() => {
   return MODEL_USAGE_HINTS[selectedModelTypeConfig.value.modelType as ImageModelType]
 })
 
+// 上游选择下拉菜单项
+const upstreamDropdownItems = computed(() => {
+  return props.modelConfigs.map(config => ({
+    label: config.name,
+    icon: 'i-heroicons-server',
+    onSelect: () => {
+      selectedConfigId.value = config.id
+    }
+  }))
+})
+
+// 当前上游显示文本
+const currentUpstreamText = computed(() => {
+  return selectedConfig.value?.name || '选择上游'
+})
+
 // 当配置列表变化时，选择默认配置
 watch(() => props.modelConfigs, (configs) => {
   if (configs.length > 0 && !selectedConfigId.value) {
     const defaultConfig = configs.find(c => c.isDefault) || configs[0]
     selectedConfigId.value = defaultConfig.id
-    // 默认选择第一个绘图模型
     if (defaultConfig.modelTypeConfigs && defaultConfig.modelTypeConfigs.length > 0) {
       const firstImageModel = defaultConfig.modelTypeConfigs.find(
         (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
@@ -82,7 +96,6 @@ watch(() => props.modelConfigs, (configs) => {
 watch(selectedConfigId, (newId) => {
   const config = props.modelConfigs.find(c => c.id === newId)
   if (config?.modelTypeConfigs && config.modelTypeConfigs.length > 0) {
-    // 只考虑绘图模型
     const imageModels = config.modelTypeConfigs.filter(
       (mtc: ModelTypeConfig) => !mtc.category || mtc.category === 'image'
     )
@@ -102,7 +115,7 @@ async function handleFileChange(event: Event) {
 
   for (const file of files) {
     if (file.size > MAX_REFERENCE_IMAGE_SIZE_BYTES) {
-      alert('图片大小不能超过10MB')
+      toast.add({ title: '图片大小不能超过10MB', color: 'error' })
       continue
     }
 
@@ -131,19 +144,17 @@ async function handleSubmit() {
   }
 
   if (!selectedConfigId.value || selectedModelName.value === null || !selectedModelTypeConfig.value) {
-    alert('请先选择模型配置')
+    toast.add({ title: '请先选择模型配置', color: 'warning' })
     return
   }
 
-  // 非MJ模式下，不支持纯参考图
   if (!supportsReferenceImages.value && referenceImages.value.length > 0 && !prompt.value.trim()) {
-    alert('当前模型需要输入提示词')
+    toast.add({ title: '当前模型需要输入提示词', color: 'warning' })
     return
   }
 
   isSubmitting.value = true
   try {
-    // 如果模型不支持垫图，不传递图片数据
     const imagesToSubmit = supportsReferenceImages.value ? referenceImages.value : []
     emit(
       'submit',
@@ -172,15 +183,17 @@ defineExpose({
 </script>
 
 <template>
-  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-6 border border-(--ui-border)">
-    <!-- 上游选择 -->
-    <div class="mb-4">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-(--ui-text-toned) text-sm font-medium">选择上游</h3>
+  <div class="space-y-4">
+    <h2 class="text-(--ui-text) text-lg font-medium">绘图工作台</h2>
+
+    <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-6 border border-(--ui-border)">
+      <!-- 上游选择 -->
+      <UFormField label="选择上游" class="mb-4">
+      <template #hint>
         <NuxtLink to="/settings" class="text-(--ui-primary) text-xs hover:opacity-80">
           管理配置
         </NuxtLink>
-      </div>
+      </template>
 
       <div v-if="modelConfigs.length === 0" class="p-4 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) text-center">
         <p class="text-(--ui-text-muted) text-sm mb-3">还没有模型配置</p>
@@ -189,27 +202,24 @@ defineExpose({
         </NuxtLink>
       </div>
 
-      <div v-else class="relative">
-        <UIcon name="i-heroicons-server" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--ui-text-dimmed) pointer-events-none" />
-        <select
-          v-model="selectedConfigId"
-          class="w-full pl-10 pr-4 py-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border-accented) text-(--ui-text) focus:outline-none focus:border-(--ui-primary) appearance-none cursor-pointer"
-        >
-          <option v-for="config in modelConfigs" :key="config.id" :value="config.id">
-            {{ config.name }}
-          </option>
-        </select>
-        <UIcon name="i-heroicons-chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-(--ui-text-dimmed) pointer-events-none" />
-      </div>
-    </div>
+      <UDropdownMenu v-else :items="[upstreamDropdownItems]">
+        <UButton variant="outline" class="w-full justify-between">
+          <span class="flex items-center gap-2">
+            <UIcon name="i-heroicons-server" class="w-4 h-4" />
+            {{ currentUpstreamText }}
+          </span>
+          <UIcon name="i-heroicons-chevron-down" class="w-4 h-4" />
+        </UButton>
+      </UDropdownMenu>
+    </UFormField>
 
     <!-- 模型类型选择（当上游支持多个类型时显示） -->
-    <div v-if="availableModelTypes.length > 1" class="mb-4">
-      <h3 class="text-(--ui-text-toned) text-sm font-medium mb-3">选择模型</h3>
+    <UFormField v-if="availableModelTypes.length > 1" label="选择模型" class="mb-4">
       <div class="grid grid-cols-2 gap-2">
         <button
           v-for="mtc in availableModelTypes"
           :key="mtc.modelName"
+          type="button"
           :class="[
             'p-2 rounded-lg border transition-all text-center flex items-center justify-center gap-2',
             selectedModelName === mtc.modelName
@@ -227,7 +237,7 @@ defineExpose({
           </span>
         </button>
       </div>
-    </div>
+    </UFormField>
 
     <!-- 当前模型信息（请求格式、模型名称） -->
     <div v-if="selectedModelTypeConfig" class="mb-4 text-xs text-(--ui-text-dimmed)">
@@ -258,12 +268,11 @@ defineExpose({
       </div>
     </div>
 
-    <!-- 参考图上传区 (仅MJ-Proxy格式支持) -->
-    <div v-if="supportsReferenceImages" class="mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-(--ui-text-toned) text-sm font-medium">参考图 (可选，最多3张)</h3>
+    <!-- 参考图上传区 -->
+    <UFormField v-if="supportsReferenceImages" label="参考图 (可选，最多3张)" class="mb-6">
+      <template #hint>
         <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，单张最大10MB</span>
-      </div>
+      </template>
 
       <div class="flex gap-3 flex-wrap">
         <!-- 已上传的图片 -->
@@ -274,6 +283,7 @@ defineExpose({
         >
           <img :src="img" class="w-full h-full object-cover" />
           <button
+            type="button"
             class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
             @click="removeImage(index)"
           >
@@ -297,31 +307,30 @@ defineExpose({
           />
         </label>
       </div>
-    </div>
+    </UFormField>
 
     <!-- 提示词输入 -->
-    <div class="mb-4">
-      <h3 class="text-(--ui-text-toned) text-sm font-medium mb-3">描述你想要的图片</h3>
-
+    <UFormField label="描述你想要的图片" class="mb-4">
       <UTextarea
         v-model="prompt"
         placeholder="例如：一只可爱的小猫咪坐在花园里，油画风格，高清，细节丰富"
         :rows="8"
         class="w-full"
       />
-    </div>
+    </UFormField>
 
-    <!-- 提交按钮 -->
-    <UButton
-      block
-      size="lg"
-      :loading="isSubmitting"
-      :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedConfigId || selectedModelName === null || modelConfigs.length === 0"
-      class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-      @click="handleSubmit"
-    >
-      <UIcon name="i-heroicons-sparkles" class="w-5 h-5 mr-2" />
-      开始生成
-    </UButton>
+      <!-- 提交按钮 -->
+      <UButton
+        block
+        size="lg"
+        :loading="isSubmitting"
+        :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedConfigId || selectedModelName === null || modelConfigs.length === 0"
+        class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+        @click="handleSubmit"
+      >
+        <UIcon name="i-heroicons-sparkles" class="w-5 h-5 mr-2" />
+        开始生成
+      </UButton>
+    </div>
   </div>
 </template>

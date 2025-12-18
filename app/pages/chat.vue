@@ -3,12 +3,10 @@ definePageMeta({
   middleware: 'auth',
 })
 
-const { user, clear } = useUserSession()
 const toast = useToast()
 const router = useRouter()
 
-// 响应式布局
-const isMobile = useIsMobile()
+// 移动端抽屉状态
 const showLeftDrawer = ref(false)
 const showRightDrawer = ref(false)
 
@@ -198,13 +196,6 @@ async function handleUpdateModel(configId: number, modelName: string) {
   }
 }
 
-// 登出
-async function handleLogout() {
-  cleanup()
-  await clear()
-  router.push('/login')
-}
-
 // 页面卸载时清理
 onUnmounted(() => {
   cleanup()
@@ -212,65 +203,26 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-screen bg-(--ui-bg) flex flex-col overflow-hidden">
-    <!-- 桌面端顶部导航 -->
-    <header v-if="!isMobile" class="border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0">
-      <div class="max-w-screen-2xl mx-auto px-4 h-14 flex items-center justify-between">
-        <!-- Logo -->
-        <NuxtLink to="/" class="flex items-center gap-2">
-          <UIcon name="i-heroicons-sparkles" class="w-6 h-6 text-(--ui-primary)" />
-          <span class="font-bold text-lg">MJ Studio</span>
-        </NuxtLink>
-
-        <!-- 右侧操作 -->
-        <div class="flex items-center gap-2">
-          <NuxtLink to="/">
-            <UButton variant="ghost" size="sm">
-              <UIcon name="i-heroicons-paint-brush" class="w-4 h-4 mr-1" />
-              绘图
-            </UButton>
-          </NuxtLink>
-
-          <UColorModeButton />
-
-          <NuxtLink to="/settings">
-            <UButton variant="ghost" size="sm">
-              <UIcon name="i-heroicons-cog-6-tooth" class="w-4 h-4" />
-            </UButton>
-          </NuxtLink>
-
-          <UDropdownMenu
-            :items="[
-              { label: user?.name || user?.email || '用户', disabled: true },
-              { type: 'separator' },
-              { label: '退出登录', icon: 'i-heroicons-arrow-right-on-rectangle', click: handleLogout }
-            ]"
-          >
-            <UButton variant="ghost" size="sm">
-              <UIcon name="i-heroicons-user-circle" class="w-5 h-5" />
-            </UButton>
-          </UDropdownMenu>
-        </div>
-      </div>
-    </header>
-
-    <!-- 移动端顶部栏 -->
-    <header v-if="isMobile" class="h-14 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0">
+  <div class="h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden">
+    <!-- 移动端抽屉按钮栏 -->
+    <div class="h-12 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 md:hidden">
       <UButton variant="ghost" size="sm" @click="showLeftDrawer = true">
         <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+        <span class="ml-1">助手</span>
       </UButton>
-      <span class="flex-1 text-center truncate font-medium">
+      <span class="flex-1 text-center truncate font-medium text-sm">
         {{ currentConversation?.title || currentAssistant?.name || '选择助手' }}
       </span>
       <UButton variant="ghost" size="sm" @click="showRightDrawer = true">
+        <span class="mr-1">对话</span>
         <UIcon name="i-heroicons-chat-bubble-left-right" class="w-5 h-5" />
       </UButton>
-    </header>
+    </div>
 
     <!-- 主体内容 -->
     <div class="flex-1 flex overflow-hidden min-h-0">
       <!-- 左侧：助手列表（桌面端显示） -->
-      <div v-if="!isMobile" class="w-[240px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border)">
+      <div class="w-[240px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border) hidden md:block">
         <ChatAssistantList
           :assistants="assistants"
           :current-assistant-id="currentAssistantId"
@@ -282,7 +234,7 @@ onUnmounted(() => {
       <!-- 中间：消息区域（始终显示） -->
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
         <!-- 桌面端对话标题栏 -->
-        <div v-if="!isMobile && currentConversation" class="h-12 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0">
+        <div v-if="currentConversation" class="h-12 items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 hidden md:flex">
           <span class="font-medium truncate">{{ currentConversation.title }}</span>
         </div>
 
@@ -306,7 +258,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 右侧：助手信息 + 对话列表（桌面端显示） -->
-      <div v-if="!isMobile" class="w-[260px] flex-shrink-0 flex flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border)">
+      <div class="w-[260px] flex-shrink-0 flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border) hidden md:flex">
         <!-- 助手信息 -->
         <ChatAssistantInfo
           :assistant="currentAssistant"
@@ -336,22 +288,6 @@ onUnmounted(() => {
           @select="handleSelectAssistant"
           @create="handleCreateAssistant"
         />
-      </template>
-      <template #footer>
-        <div class="flex gap-2 p-4 border-t border-(--ui-border)">
-          <NuxtLink to="/" class="flex-1">
-            <UButton variant="outline" block>
-              <UIcon name="i-heroicons-paint-brush" class="w-4 h-4 mr-1" />
-              绘图
-            </UButton>
-          </NuxtLink>
-          <NuxtLink to="/settings">
-            <UButton variant="ghost" size="sm">
-              <UIcon name="i-heroicons-cog-6-tooth" class="w-5 h-5" />
-            </UButton>
-          </NuxtLink>
-          <UColorModeButton />
-        </div>
       </template>
     </UDrawer>
 

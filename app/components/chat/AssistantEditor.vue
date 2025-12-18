@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Assistant } from '~/composables/useAssistants'
 import type { ModelConfig } from '~/composables/useTasks'
+import type { FormSubmitEvent, FormError } from '@nuxt/ui'
 
 const props = defineProps<{
   assistant: Assistant | null
@@ -14,7 +15,7 @@ const emit = defineEmits<{
 }>()
 
 // 表单数据
-const formData = ref({
+const formData = reactive({
   name: '',
   description: '',
   avatar: '',
@@ -23,26 +24,35 @@ const formData = ref({
   modelName: null as string | null,
 })
 
+// 表单验证
+function validate(state: typeof formData): FormError[] {
+  const errors: FormError[] = []
+  if (!state.name?.trim()) {
+    errors.push({ name: 'name', message: '请输入助手名称' })
+  }
+  return errors
+}
+
 // 监听 assistant 变化，初始化表单
 watch(() => props.assistant, (assistant) => {
   if (assistant) {
-    formData.value = {
+    Object.assign(formData, {
       name: assistant.name,
       description: assistant.description || '',
       avatar: assistant.avatar || '',
       systemPrompt: assistant.systemPrompt || '',
       modelConfigId: assistant.modelConfigId,
       modelName: assistant.modelName,
-    }
+    })
   } else {
-    formData.value = {
+    Object.assign(formData, {
       name: '',
       description: '',
       avatar: '',
       systemPrompt: '',
       modelConfigId: null,
       modelName: null,
-    }
+    })
   }
 }, { immediate: true })
 
@@ -83,12 +93,12 @@ const allChatModels = computed(() => {
 
 // 当前选中的显示文本
 const currentDisplayText = computed(() => {
-  if (!formData.value.modelConfigId || !formData.value.modelName) {
+  if (!formData.modelConfigId || !formData.modelName) {
     return '选择模型'
   }
-  const config = props.modelConfigs.find(c => c.id === formData.value.modelConfigId)
+  const config = props.modelConfigs.find(c => c.id === formData.modelConfigId)
   if (!config) return '选择模型'
-  return `${config.name} / ${formData.value.modelName}`
+  return `${config.name} / ${formData.modelName}`
 })
 
 // 下拉菜单项（按上游分组）
@@ -123,8 +133,8 @@ const modelDropdownItems = computed(() => {
 
 // 选择模型
 function handleSelectModel(configId: number, modelName: string) {
-  formData.value.modelConfigId = configId
-  formData.value.modelName = modelName
+  formData.modelConfigId = configId
+  formData.modelName = modelName
 }
 
 // 处理头像上传
@@ -135,32 +145,27 @@ async function handleAvatarUpload(e: Event) {
 
   // 限制大小 2MB
   if (file.size > 2 * 1024 * 1024) {
-    alert('图片大小不能超过 2MB')
+    useToast().add({ title: '图片大小不能超过 2MB', color: 'error' })
     return
   }
 
   // 转换为 base64
   const reader = new FileReader()
   reader.onload = () => {
-    formData.value.avatar = reader.result as string
+    formData.avatar = reader.result as string
   }
   reader.readAsDataURL(file)
 }
 
-// 保存
-function handleSave() {
-  if (!formData.value.name.trim()) {
-    alert('请输入助手名称')
-    return
-  }
-
+// 提交表单
+function onSubmit(event: FormSubmitEvent<typeof formData>) {
   emit('save', {
-    name: formData.value.name.trim(),
-    description: formData.value.description.trim() || null,
-    avatar: formData.value.avatar || null,
-    systemPrompt: formData.value.systemPrompt.trim() || null,
-    modelConfigId: formData.value.modelConfigId,
-    modelName: formData.value.modelName,
+    name: event.data.name.trim(),
+    description: event.data.description?.trim() || null,
+    avatar: event.data.avatar || null,
+    systemPrompt: event.data.systemPrompt?.trim() || null,
+    modelConfigId: event.data.modelConfigId,
+    modelName: event.data.modelName,
   })
 }
 
@@ -178,11 +183,11 @@ function handleClose() {
     @update:open="emit('update:open', $event)"
   >
     <template #body>
-      <div class="space-y-5">
+      <UForm :state="formData" :validate="validate" class="space-y-5" @submit="onSubmit">
         <!-- 头像 + 名称 + 简介 同一行 -->
         <div class="flex gap-4">
-          <!-- 头像（参考图样式） -->
-          <div class="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden group">
+          <!-- 头像（圆形样式） -->
+          <div class="relative w-30 h-30 shrink-0 rounded-full overflow-hidden group">
             <img
               v-if="formData.avatar"
               :src="formData.avatar"
@@ -190,7 +195,7 @@ function handleClose() {
             />
             <label
               v-else
-              class="w-full h-full border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer rounded-lg"
+              class="w-full h-full border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer rounded-full"
             >
               <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6 text-(--ui-text-dimmed) mb-1" />
               <span class="text-(--ui-text-dimmed) text-xs">上传</span>
@@ -204,6 +209,7 @@ function handleClose() {
             <!-- 已有头像时的删除遮罩 -->
             <button
               v-if="formData.avatar"
+              type="button"
               class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               @click="formData.avatar = ''"
             >
@@ -211,70 +217,66 @@ function handleClose() {
             </button>
           </div>
 
-          <!-- 名称 + 简介 -->
+          <!-- 名称 + 模型配置 -->
           <div class="flex-1 space-y-3">
-            <div>
-              <label class="block text-(--ui-text-muted) text-xs mb-1">助手名称 *</label>
+            <UFormField label="助手名称" name="name" required>
               <UInput
                 v-model="formData.name"
                 placeholder="如：代码助手"
-                class="w-full"
+                class="w-56"
               />
-            </div>
-            <div>
-              <label class="block text-(--ui-text-muted) text-xs mb-1">助手简介</label>
-              <UInput
-                v-model="formData.description"
-                placeholder="简短描述助手的功能"
-                class="w-full"
-              />
-            </div>
+            </UFormField>
+            <UFormField label="模型配置" name="modelConfig">
+              <UDropdownMenu :items="modelDropdownItems">
+                <UButton
+                  variant="outline"
+                  class="justify-between"
+                  :disabled="allChatModels.length === 0"
+                >
+                  <span class="flex items-center gap-2">
+                    <UIcon name="i-heroicons-cpu-chip" class="w-4 h-4" />
+                    {{ currentDisplayText }}
+                  </span>
+                  <UIcon name="i-heroicons-chevron-down" class="w-4 h-4" />
+                </UButton>
+              </UDropdownMenu>
+              <template v-if="allChatModels.length === 0" #help>
+                请先在设置中添加对话模型
+              </template>
+            </UFormField>
           </div>
         </div>
 
+        <!-- 简介 -->
+        <UFormField label="助手简介" name="description">
+          <UTextarea
+            v-model="formData.description"
+            placeholder="简短描述助手的功能"
+            :rows="4"
+            class="w-full"
+          />
+        </UFormField>
+
         <!-- 系统提示词 -->
-        <div>
-          <label class="block text-(--ui-text-muted) text-sm mb-2">系统提示词</label>
+        <UFormField label="系统提示词" name="systemPrompt">
           <UTextarea
             v-model="formData.systemPrompt"
-            :rows="8"
+            :rows="16"
             placeholder="设置助手的行为和角色，如：你是一个专业的编程助手..."
             class="w-full"
           />
-        </div>
+        </UFormField>
 
-        <!-- 模型选择（下拉菜单样式） -->
-        <div>
-          <label class="block text-(--ui-text-muted) text-sm mb-2">模型配置</label>
-          <UDropdownMenu :items="modelDropdownItems">
-            <UButton
-              variant="outline"
-              class="w-full justify-between"
-              :disabled="allChatModels.length === 0"
-            >
-              <span class="flex items-center gap-2">
-                <UIcon name="i-heroicons-cpu-chip" class="w-4 h-4" />
-                {{ currentDisplayText }}
-              </span>
-              <UIcon name="i-heroicons-chevron-down" class="w-4 h-4" />
-            </UButton>
-          </UDropdownMenu>
-          <p v-if="allChatModels.length === 0" class="text-xs text-(--ui-text-muted) mt-1">
-            请先在设置中添加对话模型
-          </p>
+        <!-- 底部按钮 -->
+        <div class="flex justify-end gap-2 pt-2">
+          <UButton variant="ghost" type="button" @click="handleClose">
+            取消
+          </UButton>
+          <UButton color="primary" type="submit">
+            保存
+          </UButton>
         </div>
-      </div>
-    </template>
-
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton variant="ghost" @click="handleClose">
-          取消
-        </UButton>
-        <UButton color="primary" @click="handleSave">
-          保存
-        </UButton>
-      </div>
+      </UForm>
     </template>
   </UModal>
 </template>

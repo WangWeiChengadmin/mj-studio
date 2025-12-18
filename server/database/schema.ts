@@ -21,6 +21,8 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // hashed
   name: text('name'),
+  avatar: text('avatar'), // 头像 base64 或 URL
+  blurByDefault: integer('blur_by_default', { mode: 'boolean' }).notNull().default(true), // 绘图结果默认模糊
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 
