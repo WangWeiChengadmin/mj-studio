@@ -21,7 +21,6 @@ const formData = ref({
   systemPrompt: '',
   modelConfigId: null as number | null,
   modelName: null as string | null,
-  isDefault: false,
 })
 
 // 监听 assistant 变化，初始化表单
@@ -34,7 +33,6 @@ watch(() => props.assistant, (assistant) => {
       systemPrompt: assistant.systemPrompt || '',
       modelConfigId: assistant.modelConfigId,
       modelName: assistant.modelName,
-      isDefault: assistant.isDefault,
     }
   } else {
     formData.value = {
@@ -44,7 +42,6 @@ watch(() => props.assistant, (assistant) => {
       systemPrompt: '',
       modelConfigId: null,
       modelName: null,
-      isDefault: false,
     }
   }
 }, { immediate: true })
@@ -58,28 +55,76 @@ function isImageModel(modelType: string): boolean {
   return imageModels.includes(modelType)
 }
 
-// 当前选中配置的对话模型
-const availableModels = computed(() => {
-  const config = props.modelConfigs.find(c => c.id === formData.value.modelConfigId)
-  if (!config) return []
-  return (config.modelTypeConfigs || []).filter(m => {
-    return m.category === 'chat' ||
-      (!m.category && m.apiFormat === 'openai-chat' && !isImageModel(m.modelType))
-  })
+// 获取所有对话模型（扁平化：上游 + 模型）
+const allChatModels = computed(() => {
+  const result: Array<{
+    configId: number
+    configName: string
+    modelName: string
+  }> = []
+
+  for (const config of props.modelConfigs) {
+    for (const model of config.modelTypeConfigs || []) {
+      const isChat = model.category === 'chat' ||
+        (!model.category && model.apiFormat === 'openai-chat' && !isImageModel(model.modelType))
+
+      if (isChat) {
+        result.push({
+          configId: config.id,
+          configName: config.name,
+          modelName: model.modelName
+        })
+      }
+    }
+  }
+
+  return result
 })
 
-// 处理上游选择变化
-function handleConfigChange(configId: number) {
-  formData.value.modelConfigId = configId
-  // 自动选择第一个对话模型
-  const config = props.modelConfigs.find(c => c.id === configId)
-  if (config) {
-    const firstChatModel = (config.modelTypeConfigs || []).find(m => {
-      return m.category === 'chat' ||
-        (!m.category && m.apiFormat === 'openai-chat' && !isImageModel(m.modelType))
-    })
-    formData.value.modelName = firstChatModel?.modelName || null
+// 当前选中的显示文本
+const currentDisplayText = computed(() => {
+  if (!formData.value.modelConfigId || !formData.value.modelName) {
+    return '选择模型'
   }
+  const config = props.modelConfigs.find(c => c.id === formData.value.modelConfigId)
+  if (!config) return '选择模型'
+  return `${config.name} / ${formData.value.modelName}`
+})
+
+// 下拉菜单项（按上游分组）
+const modelDropdownItems = computed(() => {
+  const groups: any[][] = []
+
+  // 按上游分组
+  const configMap = new Map<number, { name: string, models: string[] }>()
+  for (const item of allChatModels.value) {
+    if (!configMap.has(item.configId)) {
+      configMap.set(item.configId, { name: item.configName, models: [] })
+    }
+    configMap.get(item.configId)!.models.push(item.modelName)
+  }
+
+  // 构建分组菜单
+  for (const [configId, { name, models }] of configMap) {
+    const group: any[] = [
+      { label: name, type: 'label' }
+    ]
+    for (const modelName of models) {
+      group.push({
+        label: modelName,
+        onSelect: () => handleSelectModel(configId, modelName)
+      })
+    }
+    groups.push(group)
+  }
+
+  return groups
+})
+
+// 选择模型
+function handleSelectModel(configId: number, modelName: string) {
+  formData.value.modelConfigId = configId
+  formData.value.modelName = modelName
 }
 
 // 处理头像上传
@@ -116,7 +161,6 @@ function handleSave() {
     systemPrompt: formData.value.systemPrompt.trim() || null,
     modelConfigId: formData.value.modelConfigId,
     modelName: formData.value.modelName,
-    isDefault: formData.value.isDefault,
   })
 }
 
@@ -130,65 +174,62 @@ function handleClose() {
   <UModal
     :open="open"
     :title="assistant ? '编辑助手' : '新建助手'"
+    :ui="{ content: 'sm:max-w-4xl' }"
     @update:open="emit('update:open', $event)"
   >
     <template #body>
-      <div class="space-y-4">
-        <!-- 头像 -->
-        <div>
-          <label class="block text-(--ui-text-muted) text-sm mb-2">助手头像</label>
-          <div class="flex items-center gap-4">
-            <div class="w-16 h-16 rounded-full bg-(--ui-bg-elevated) flex items-center justify-center overflow-hidden border border-(--ui-border)">
-              <img
-                v-if="formData.avatar"
-                :src="formData.avatar"
-                class="w-full h-full object-cover"
-              />
-              <UIcon
-                v-else
-                name="i-heroicons-user-circle"
-                class="w-10 h-10 text-(--ui-text-muted)"
-              />
-            </div>
-            <label class="cursor-pointer">
+      <div class="space-y-5">
+        <!-- 头像 + 名称 + 简介 同一行 -->
+        <div class="flex gap-4">
+          <!-- 头像（参考图样式） -->
+          <div class="relative w-20 h-20 shrink-0 rounded-lg overflow-hidden group">
+            <img
+              v-if="formData.avatar"
+              :src="formData.avatar"
+              class="w-full h-full object-cover"
+            />
+            <label
+              v-else
+              class="w-full h-full border-2 border-dashed border-(--ui-border-accented) hover:border-(--ui-primary) transition-colors flex flex-col items-center justify-center cursor-pointer rounded-lg"
+            >
+              <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6 text-(--ui-text-dimmed) mb-1" />
+              <span class="text-(--ui-text-dimmed) text-xs">上传</span>
               <input
                 type="file"
                 accept="image/*"
                 class="hidden"
                 @change="handleAvatarUpload"
               />
-              <UButton variant="outline" size="sm" as="span">
-                上传图片
-              </UButton>
             </label>
-            <UButton
+            <!-- 已有头像时的删除遮罩 -->
+            <button
               v-if="formData.avatar"
-              variant="ghost"
-              size="sm"
-              color="error"
+              class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
               @click="formData.avatar = ''"
             >
-              移除
-            </UButton>
+              <UIcon name="i-heroicons-x-mark" class="w-6 h-6 text-white" />
+            </button>
           </div>
-        </div>
 
-        <!-- 名称 -->
-        <div>
-          <label class="block text-(--ui-text-muted) text-sm mb-2">助手名称 *</label>
-          <UInput
-            v-model="formData.name"
-            placeholder="如：代码助手"
-          />
-        </div>
-
-        <!-- 简介 -->
-        <div>
-          <label class="block text-(--ui-text-muted) text-sm mb-2">助手简介</label>
-          <UInput
-            v-model="formData.description"
-            placeholder="简短描述助手的功能"
-          />
+          <!-- 名称 + 简介 -->
+          <div class="flex-1 space-y-3">
+            <div>
+              <label class="block text-(--ui-text-muted) text-xs mb-1">助手名称 *</label>
+              <UInput
+                v-model="formData.name"
+                placeholder="如：代码助手"
+                class="w-full"
+              />
+            </div>
+            <div>
+              <label class="block text-(--ui-text-muted) text-xs mb-1">助手简介</label>
+              <UInput
+                v-model="formData.description"
+                placeholder="简短描述助手的功能"
+                class="w-full"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- 系统提示词 -->
@@ -196,46 +237,32 @@ function handleClose() {
           <label class="block text-(--ui-text-muted) text-sm mb-2">系统提示词</label>
           <UTextarea
             v-model="formData.systemPrompt"
-            :rows="4"
+            :rows="8"
             placeholder="设置助手的行为和角色，如：你是一个专业的编程助手..."
+            class="w-full"
           />
         </div>
 
-        <!-- 上游选择 -->
+        <!-- 模型选择（下拉菜单样式） -->
         <div>
-          <label class="block text-(--ui-text-muted) text-sm mb-2">上游</label>
-          <USelectMenu
-            :model-value="formData.modelConfigId"
-            :items="modelConfigs.filter(c => (c.modelTypeConfigs || []).some(m => m.category === 'chat' || (!m.category && m.apiFormat === 'openai-chat' && !isImageModel(m.modelType)))).map(c => ({
-              label: c.name,
-              value: c.id
-            }))"
-            placeholder="选择上游"
-            value-key="value"
-            @update:model-value="handleConfigChange"
-          />
+          <label class="block text-(--ui-text-muted) text-sm mb-2">模型配置</label>
+          <UDropdownMenu :items="modelDropdownItems">
+            <UButton
+              variant="outline"
+              class="w-full justify-between"
+              :disabled="allChatModels.length === 0"
+            >
+              <span class="flex items-center gap-2">
+                <UIcon name="i-heroicons-cpu-chip" class="w-4 h-4" />
+                {{ currentDisplayText }}
+              </span>
+              <UIcon name="i-heroicons-chevron-down" class="w-4 h-4" />
+            </UButton>
+          </UDropdownMenu>
+          <p v-if="allChatModels.length === 0" class="text-xs text-(--ui-text-muted) mt-1">
+            请先在设置中添加对话模型
+          </p>
         </div>
-
-        <!-- 模型选择 -->
-        <div>
-          <label class="block text-(--ui-text-muted) text-sm mb-2">模型</label>
-          <USelectMenu
-            v-model="formData.modelName"
-            :items="availableModels.map(m => ({
-              label: m.modelName,
-              value: m.modelName
-            }))"
-            placeholder="选择模型"
-            value-key="value"
-            :disabled="!formData.modelConfigId"
-          />
-        </div>
-
-        <!-- 设为默认 -->
-        <label class="flex items-center gap-3 cursor-pointer">
-          <UCheckbox v-model="formData.isDefault" />
-          <span class="text-(--ui-text-muted) text-sm">设为默认助手</span>
-        </label>
       </div>
     </template>
 

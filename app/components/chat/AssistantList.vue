@@ -10,6 +10,15 @@ const emit = defineEmits<{
   select: [id: number]
   create: []
 }>()
+
+// 排序后的助手列表：默认助手排在最前
+const sortedAssistants = computed(() => {
+  return [...props.assistants].sort((a, b) => {
+    if (a.isDefault && !b.isDefault) return -1
+    if (!a.isDefault && b.isDefault) return 1
+    return 0
+  })
+})
 </script>
 
 <template>
@@ -22,7 +31,7 @@ const emit = defineEmits<{
     <!-- 助手列表 -->
     <div class="flex-1 overflow-y-auto">
       <button
-        v-for="assistant in assistants"
+        v-for="assistant in sortedAssistants"
         :key="assistant.id"
         class="w-full p-3 text-left hover:bg-(--ui-bg) transition-colors border-b border-(--ui-border)"
         :class="assistant.id === currentAssistantId ? 'bg-(--ui-bg)' : ''"
