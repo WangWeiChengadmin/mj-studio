@@ -36,6 +36,7 @@ const {
   loadConversations,
   selectConversation,
   createConversation,
+  startNewConversation,
   deleteConversation,
   updateConversationTitle,
   sendMessage,
@@ -107,17 +108,10 @@ async function handleSaveAssistant(data: any) {
   }
 }
 
-// 创建新对话
-async function handleCreateConversation() {
+// 创建新对话（进入虚拟对话状态）
+function handleCreateConversation() {
   if (!currentAssistantId.value) return
-
-  try {
-    await createConversation(currentAssistantId.value)
-    // 更新对话数量
-    incrementConversationCount(currentAssistantId.value)
-  } catch (error: any) {
-    toast.add({ title: error.message || '创建对话失败', color: 'error' })
-  }
+  startNewConversation()
 }
 
 // 选择对话

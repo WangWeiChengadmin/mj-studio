@@ -191,6 +191,12 @@ export function useConversations() {
     }
   }
 
+  // 开始新对话（虚拟状态，发送消息时才创建）
+  function startNewConversation() {
+    currentConversationId.value = null
+    messages.value = []
+  }
+
   // 发送消息（流式）
   async function sendMessage(conversationId: number, content: string, modelName?: string | null) {
     isStreaming.value = true
@@ -630,6 +636,7 @@ export function useConversations() {
     loadConversations,
     selectConversation,
     createConversation,
+    startNewConversation,
     updateConversationTitle,
     deleteConversation,
     sendMessage,
