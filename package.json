@@ -16,6 +16,8 @@
     "test:api": "vitest run tests/api-integration.test.ts"
   },
   "dependencies": {
+    "@iconify-json/heroicons": "^1.2.3",
+    "@iconify-json/lucide": "^1.2.81",
     "@nuxt/ui": "^4.2.1",
     "better-sqlite3": "^12.5.0",
     "drizzle-orm": "^0.45.1",

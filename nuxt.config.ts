@@ -21,10 +21,11 @@ export default defineNuxtConfig({
     preference: 'dark',
   },
 
-  // 禁用 Google Fonts 避免网络问题
+  // 使用本地图标包，避免运行时网络请求
   icon: {
-    provider: 'iconify',
+    serverBundle: 'local',
   },
+  // 禁用 Google Fonts 避免网络问题
   fonts: {
     provider: 'none',
   },

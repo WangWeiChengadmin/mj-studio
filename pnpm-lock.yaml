@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@iconify-json/heroicons':
+        specifier: ^1.2.3
+        version: 1.2.3
+      '@iconify-json/lucide':
+        specifier: ^1.2.81
+        version: 1.2.81
       '@nuxt/ui':
         specifier: ^4.2.1
         version: 4.2.1(@babel/parser@7.28.5)(db0@0.3.4(better-sqlite3@12.5.0)(drizzle-orm@0.45.1(@types/better-sqlite3@7.6.13)(better-sqlite3@12.5.0)))(embla-carousel@8.6.0)(ioredis@5.8.2)(magicast@0.5.1)(typescript@5.9.3)(vite@7.2.7(@types/node@25.0.2)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(yaml@2.8.2))(vue-router@4.6.4(vue@3.5.25(typescript@5.9.3)))(vue@3.5.25(typescript@5.9.3))
@@ -700,6 +706,12 @@ packages:
 
   '@floating-ui/vue@1.1.9':
     resolution: {integrity: sha512-BfNqNW6KA83Nexspgb9DZuz578R7HT8MZw1CfK9I6Ah4QReNWEJsXWHN+SdmOVLNGmTPDi+fDT535Df5PzMLbQ==}
+
+  '@iconify-json/heroicons@1.2.3':
+    resolution: {integrity: sha512-n+vmCEgTesRsOpp5AB5ILB6srsgsYK+bieoQBNlafvoEhjVXLq8nIGN4B0v/s4DUfa0dOrjwE/cKJgIKdJXOEg==}
+
+  '@iconify-json/lucide@1.2.81':
+    resolution: {integrity: sha512-6Kz/+SEuD5bkg0KImi0yFem9l6njKp4e1qF1LpQbgRfk7ngsJR/qjlB4y5rM8N1iKiDR/p19cqhmwZxyCWek+w==}
 
   '@iconify/collections@1.0.629':
     resolution: {integrity: sha512-1iT8HyMKpOvml6jxZDaW2dkdgzls4Ik7I/tn79hHqbPGWkNpIQsJSB3Dto+vAyboXLtsRvIKIwtSvfgrHR0HRw==}
@@ -5066,6 +5078,14 @@ snapshots:
     transitivePeerDependencies:
       - '@vue/composition-api'
       - vue
+
+  '@iconify-json/heroicons@1.2.3':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-json/lucide@1.2.81':
+    dependencies:
+      '@iconify/types': 2.0.0
 
   '@iconify/collections@1.0.629':
     dependencies:
