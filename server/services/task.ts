@@ -34,6 +34,7 @@ export function useTaskService() {
     apiFormat: ApiFormat
     modelName?: string
     prompt?: string
+    negativePrompt?: string
     images?: string[]
     type?: 'imagine' | 'blend'
     isBlurred?: boolean
@@ -45,6 +46,7 @@ export function useTaskService() {
       apiFormat: data.apiFormat,
       modelName: data.modelName ?? null,
       prompt: data.prompt ?? null,
+      negativePrompt: data.negativePrompt ?? null,
       images: data.images ?? [],
       type: data.type ?? 'imagine',
       status: 'pending',
@@ -332,9 +334,9 @@ export function useTaskService() {
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal)
+        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal, task.negativePrompt ?? undefined)
       } else {
-        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal)
+        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal, task.negativePrompt ?? undefined)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {

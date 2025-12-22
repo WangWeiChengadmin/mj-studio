@@ -30,6 +30,7 @@ export type ImageModelType =
   | 'gpt4o-image'  // GPT-4o 图像生成
   | 'grok-image'   // xAI Grok 图像生成
   | 'qwen-image'   // 阿里通义万相
+  | 'z-image'      // Gitee AI Z-Image
 
 // ==================== 对话相关类型 ====================
 

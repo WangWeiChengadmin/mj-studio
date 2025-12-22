@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const emit = defineEmits<{
-  copyToPanel: [prompt: string | null, images: string[]]
+  copyToPanel: [prompt: string | null, negativePrompt: string | null, images: string[]]
 }>()
 
 const { tasks, isLoading, currentPage, pageSize, total, executeAction, deleteTask, batchBlur, retryTask, cancelTask, loadTasks } = useTasks()
@@ -147,7 +147,7 @@ function handlePageChange() {
           @retry="handleRetry(task.id)"
           @cancel="handleCancel(task.id)"
           @blur="handleBlur(task.id, $event)"
-          @copy-to-panel="(prompt, images) => emit('copyToPanel', prompt, images)"
+          @copy-to-panel="(prompt, negativePrompt, images) => emit('copyToPanel', prompt, negativePrompt, images)"
         />
       </div>
 

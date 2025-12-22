@@ -8,7 +8,7 @@ const { configs: modelConfigs, loadConfigs } = useModelConfigs()
 const toast = useToast()
 
 // DrawingPanel 组件引用
-const drawingPanelRef = ref<{ setContent: (prompt: string | null, images: string[]) => void } | null>(null)
+const drawingPanelRef = ref<{ setContent: (prompt: string | null, negativePrompt: string | null, images: string[]) => void } | null>(null)
 
 // 页面加载时获取数据
 onMounted(() => {
@@ -16,12 +16,13 @@ onMounted(() => {
   loadConfigs()
 })
 
-async function handleSubmit(prompt: string, images: string[], modelConfigId: number, modelType: string, apiFormat: string, modelName: string) {
+async function handleSubmit(prompt: string, negativePrompt: string, images: string[], modelConfigId: number, modelType: string, apiFormat: string, modelName: string) {
   try {
     const result = await $fetch<{ success: boolean; taskId: number; message: string }>('/api/tasks', {
       method: 'POST',
       body: {
         prompt,
+        negativePrompt,
         base64Array: images,
         type: images.length > 0 && !prompt ? 'blend' : 'imagine',
         modelConfigId,
@@ -49,8 +50,8 @@ async function handleSubmit(prompt: string, images: string[], modelConfigId: num
 }
 
 // 复制任务内容到工作台
-function handleCopyToPanel(prompt: string | null, images: string[]) {
-  drawingPanelRef.value?.setContent(prompt, images)
+function handleCopyToPanel(prompt: string | null, negativePrompt: string | null, images: string[]) {
+  drawingPanelRef.value?.setContent(prompt, negativePrompt, images)
   toast.add({
     title: '已复制到工作台',
     color: 'success',

@@ -24,6 +24,7 @@ export const IMAGE_MODEL_TYPES: ImageModelType[] = [
   'gpt4o-image',
   'grok-image',
   'qwen-image',
+  'z-image',
 ]
 
 /**
@@ -81,6 +82,7 @@ export const MODEL_API_FORMAT_OPTIONS: Record<ModelType, ApiFormat[]> = {
   'gpt4o-image': ['openai-chat'],
   'grok-image': ['openai-chat'],
   'qwen-image': ['openai-chat'],
+  'z-image': ['dalle'],
   // 对话模型（均使用 OpenAI Chat 格式）
   'gpt': ['openai-chat'],
   'claude': ['openai-chat'],
@@ -114,6 +116,7 @@ export const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
   'gpt4o-image': 'image',
   'grok-image': 'image',
   'qwen-image': 'image',
+  'z-image': 'image',
   // 对话模型
   'gpt': 'chat',
   'claude': 'chat',
@@ -153,6 +156,7 @@ export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'gpt4o-image': 'gpt-4o-image',
   'grok-image': 'grok-4',
   'qwen-image': 'qwen-image',
+  'z-image': 'z-image-turbo',
   // 对话模型
   'gpt': 'gpt-4o',
   'claude': 'claude-sonnet-4-20250514',
@@ -189,6 +193,7 @@ export const DEFAULT_ESTIMATED_TIMES: Record<ImageModelType, number> = {
   'gpt4o-image': 30,
   'grok-image': 30,
   'qwen-image': 30,
+  'z-image': 15,
 }
 
 /**
@@ -218,6 +223,7 @@ export const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'gpt4o-image': 'GPT-4o 绘图',
   'grok-image': 'Grok 绘图',
   'qwen-image': '通义万相',
+  'z-image': 'Z-Image',
   // 对话模型
   'gpt': 'GPT',
   'claude': 'Claude',
@@ -276,6 +282,7 @@ export const MODEL_TYPE_ICONS: Record<ImageModelType, string> = {
   'gpt4o-image': 'i-heroicons-chat-bubble-left-right',
   'grok-image': 'i-heroicons-rocket-launch',
   'qwen-image': 'i-heroicons-cloud',
+  'z-image': 'i-heroicons-cube',
 }
 
 /**
@@ -293,6 +300,7 @@ export const TASK_CARD_MODEL_DISPLAY: Record<ImageModelType, { label: string; co
   'gpt4o-image': { label: 'GPT-4o', color: 'bg-emerald-500/80' },
   'grok-image': { label: 'Grok', color: 'bg-red-500/80' },
   'qwen-image': { label: '通义', color: 'bg-violet-500/80' },
+  'z-image': { label: 'Z-Image', color: 'bg-indigo-500/80' },
 }
 
 /**
@@ -310,6 +318,7 @@ export const MODEL_USAGE_HINTS: Record<ImageModelType, { text: string; type: 'wa
   'gpt4o-image': { text: '基于 GPT-4o 的图像生成，支持复杂指令', type: 'info' },
   'grok-image': { text: 'xAI 图像生成模型，风格多样，响应快速', type: 'info' },
   'qwen-image': { text: '阿里通义万相，中文提示词效果好', type: 'info' },
+  'z-image': { text: 'Gitee AI 图像生成模型，响应快速', type: 'info' },
 }
 
 /**
@@ -319,6 +328,14 @@ export const MODEL_USAGE_HINTS: Record<ImageModelType, { text: string; type: 'wa
  *   - DrawingPanel.vue: supportsReferenceImages computed 计算
  */
 export const MODELS_WITHOUT_REFERENCE_IMAGE: ImageModelType[] = ['dalle']
+
+/**
+ * 支持负面提示词的模型列表
+ * - 用途：判断是否显示负面提示词输入框
+ * - 使用场景：
+ *   - Workbench.vue: supportsNegativePrompt computed 计算
+ */
+export const MODELS_WITH_NEGATIVE_PROMPT: ImageModelType[] = ['flux', 'doubao', 'z-image']
 
 // ==================== 图片上传限制 ====================
 

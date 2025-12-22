@@ -7,6 +7,7 @@ import {
   API_FORMAT_LABELS,
   MODEL_USAGE_HINTS,
   MODELS_WITHOUT_REFERENCE_IMAGE,
+  MODELS_WITH_NEGATIVE_PROMPT,
   MAX_REFERENCE_IMAGE_SIZE_BYTES,
   MAX_REFERENCE_IMAGE_COUNT,
 } from '../../shared/constants'
@@ -16,11 +17,12 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [prompt: string, images: string[], modelConfigId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
+  submit: [prompt: string, negativePrompt: string, images: string[], modelConfigId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
 }>()
 
 const toast = useToast()
 const prompt = ref('')
+const negativePrompt = ref('')
 const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
 const selectedConfigId = ref<number | null>(null)
@@ -52,6 +54,12 @@ const supportsReferenceImages = computed(() => {
   if (!selectedModelTypeConfig.value?.apiFormat) return false
   if (MODELS_WITHOUT_REFERENCE_IMAGE.includes(selectedModelTypeConfig.value.modelType as ImageModelType)) return false
   return true
+})
+
+// 是否支持负面提示词
+const supportsNegativePrompt = computed(() => {
+  if (!selectedModelTypeConfig.value) return false
+  return MODELS_WITH_NEGATIVE_PROMPT.includes(selectedModelTypeConfig.value.modelType as ImageModelType)
 })
 
 // 当前模型的使用提示
@@ -156,9 +164,11 @@ async function handleSubmit() {
   isSubmitting.value = true
   try {
     const imagesToSubmit = supportsReferenceImages.value ? referenceImages.value : []
+    const negativePromptToSubmit = supportsNegativePrompt.value ? negativePrompt.value : ''
     emit(
       'submit',
       prompt.value,
+      negativePromptToSubmit,
       imagesToSubmit,
       selectedConfigId.value,
       selectedModelTypeConfig.value.modelType,
@@ -171,8 +181,9 @@ async function handleSubmit() {
 }
 
 // 设置面板内容（供外部调用）
-function setContent(newPrompt: string | null, images: string[]) {
+function setContent(newPrompt: string | null, newNegativePrompt: string | null, images: string[]) {
   prompt.value = newPrompt || ''
+  negativePrompt.value = newNegativePrompt || ''
   referenceImages.value = images.slice(0, MAX_REFERENCE_IMAGE_COUNT)
 }
 
@@ -213,8 +224,8 @@ defineExpose({
       </UDropdownMenu>
     </UFormField>
 
-    <!-- 模型类型选择（当上游支持多个类型时显示） -->
-    <UFormField v-if="availableModelTypes.length > 1" label="选择模型" class="mb-4">
+    <!-- 模型类型选择（当上游支持绘图模型时显示） -->
+    <UFormField v-if="availableModelTypes.length >= 1" label="选择模型" class="mb-4">
       <div class="grid grid-cols-2 gap-2">
         <button
           v-for="mtc in availableModelTypes"
@@ -315,6 +326,19 @@ defineExpose({
         v-model="prompt"
         placeholder="例如：一只可爱的小猫咪坐在花园里，油画风格，高清，细节丰富"
         :rows="8"
+        class="w-full"
+      />
+    </UFormField>
+
+    <!-- 负面提示词输入（仅支持的模型显示） -->
+    <UFormField v-if="supportsNegativePrompt" label="负面提示词 (可选)" class="mb-4">
+      <template #hint>
+        <span class="text-(--ui-text-dimmed) text-xs">描述不希望出现的内容</span>
+      </template>
+      <UTextarea
+        v-model="negativePrompt"
+        placeholder="例如：模糊、低质量、变形、水印"
+        :rows="3"
         class="w-full"
       />
     </UFormField>

@@ -57,6 +57,13 @@
       "when": 1734429000000,
       "tag": "0007_add_message_files",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1734860000000,
+      "tag": "0008_add_negative_prompt",
+      "breakpoints": true
     }
   ]
 }

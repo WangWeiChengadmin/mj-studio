@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
 
   const body = await readBody(event)
-  const { prompt, base64Array = [], type = 'imagine', modelConfigId, modelType, apiFormat, modelName } = body
+  const { prompt, negativePrompt, base64Array = [], type = 'imagine', modelConfigId, modelType, apiFormat, modelName } = body
 
   // 验证模型配置
   if (!modelConfigId) {
@@ -96,6 +96,7 @@ export default defineEventHandler(async (event) => {
     apiFormat,
     modelName: modelName || modelTypeConfig.modelName,
     prompt,
+    negativePrompt,
     images: base64Array,
     type,
     isBlurred: userData?.blurByDefault ?? true,

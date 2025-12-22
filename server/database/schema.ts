@@ -57,6 +57,7 @@ export const tasks = sqliteTable('tasks', {
   apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 使用的请求格式
   modelName: text('model_name'), // 实际使用的模型名称
   prompt: text('prompt'),
+  negativePrompt: text('negative_prompt'), // 负面提示词
   images: text('images', { mode: 'json' }).$type<string[]>().default([]),
   type: text('type').notNull().default('imagine'), // imagine | blend
   status: text('status').$type<TaskStatus>().notNull().default('pending'),
