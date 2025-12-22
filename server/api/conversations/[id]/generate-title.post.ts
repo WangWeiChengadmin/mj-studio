@@ -94,7 +94,8 @@ ${contextMessages.join('\n\n')}`
       '你是一个标题生成助手，擅长根据对话内容生成简洁准确的标题。',
       [],
       prompt,
-      undefined,
+      undefined,  // userFiles
+      undefined,  // signal
       logContext
     )
 

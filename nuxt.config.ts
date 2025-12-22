@@ -49,14 +49,13 @@ export default defineNuxtConfig({
     // JWT 密钥从环境变量读取
   },
 
-  // 多实例开发时通过 NUXT_HMR_PORT 环境变量避免 HMR 端口冲突
-  hooks: {
-    'vite:extendConfig': (config) => {
-      if (typeof config.server?.hmr === 'object') {
-        config.server.hmr.port = hmrPort
-      } else if (config.server) {
-        config.server.hmr = { port: hmrPort }
-      }
+  // Vite 配置：HMR 端口和远程访问
+  vite: {
+    server: {
+      hmr: {
+        port: hmrPort,
+        host: '0.0.0.0',
+      },
     },
   },
 })

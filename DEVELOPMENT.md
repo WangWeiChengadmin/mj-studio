@@ -9,44 +9,60 @@
 ```
 ├── app/
 │   ├── pages/
-│   │   ├── index.vue           # 主页（绘图工作台）
+│   │   ├── index.vue           # 主页（功能入口）
+│   │   ├── drawing.vue         # 绘图工作台
+│   │   ├── chat.vue            # AI 对话
 │   │   ├── login.vue           # 登录页
-│   │   ├── register.vue        # 注册页
-│   │   ├── settings.vue        # 模型配置管理
-│   │   └── trash.vue           # 回收站
+│   │   ├── settings/           # 设置页面
+│   │   ├── trash.vue           # 回收站
+│   │   └── user.vue            # 用户设置
 │   ├── components/
-│   │   ├── DrawingPanel.vue    # 绘图面板（提示词、参考图、模型选择）
-│   │   ├── TaskList.vue        # 任务列表（分页、批量操作）
-│   │   ├── TaskCard.vue        # 任务卡片（状态、操作按钮、参考图查看）
-│   │   └── TrashList.vue       # 回收站列表
+│   │   ├── AppHeader.vue       # 全局头部导航
+│   │   ├── drawing/            # 绘图相关组件
+│   │   └── chat/               # 对话相关组件
+│   │       ├── MessageList.vue # 消息列表（流式渲染）
+│   │       └── MessageInput.vue# 消息输入框
 │   ├── composables/
-│   │   ├── useTasks.ts         # 任务状态管理
-│   │   ├── useTrash.ts         # 回收站状态管理
-│   │   └── useModelConfigs.ts  # 模型配置管理
-│   ├── utils/
-│   │   └── sqids.ts            # 任务ID编解码（短链接）
+│   │   ├── useAuth.ts          # JWT 认证
+│   │   ├── useTasks.ts         # 绘图任务管理
+│   │   ├── useTrash.ts         # 回收站管理
+│   │   ├── useModelConfigs.ts  # 模型配置管理
+│   │   ├── useAssistants.ts    # 助手管理
+│   │   ├── useConversations.ts # 对话管理（含流式输出）
+│   │   ├── useChatModels.ts    # 对话模型选择
+│   │   └── useMarkdown.ts      # Markdown 渲染
+│   ├── shared/
+│   │   └── types.ts            # 前后端共享类型
 │   └── middleware/
 │       └── auth.ts             # 认证中间件
 ├── server/
 │   ├── api/
 │   │   ├── auth/               # 认证 API
-│   │   ├── tasks/              # 任务 API（CRUD、重试、批量模糊、回收站）
-│   │   └── model-configs/      # 模型配置 API
+│   │   ├── tasks/              # 绘图任务 API
+│   │   ├── model-configs/      # 模型配置 API
+│   │   ├── assistants/         # 助手 API
+│   │   ├── conversations/      # 对话 API
+│   │   ├── messages/           # 消息 API（含 SSE 流）
+│   │   └── images/             # 图片上传/获取
 │   ├── database/
 │   │   ├── index.ts            # 数据库连接
-│   │   └── schema.ts           # 表结构定义
+│   │   ├── schema.ts           # 表结构定义
+│   │   └── migrations/         # 数据库迁移文件
 │   └── services/
-│       ├── task.ts             # 任务服务（调度、软删除、回收站）
+│       ├── task.ts             # 绘图任务服务
 │       ├── mj.ts               # MJ-Proxy 格式
 │       ├── gemini.ts           # Gemini 格式
-│       ├── dalle.ts            # DALL-E 格式（含豆包、Flux特殊处理）
+│       ├── dalle.ts            # DALL-E 格式
 │       ├── openaiChat.ts       # OpenAI Chat 格式
-│       ├── logger.ts           # 请求/响应日志服务
-│       ├── image.ts            # 图片下载/保存服务
-│       ├── types.ts            # 统一类型定义
-│       └── modelConfig.ts      # 模型配置服务
-├── logs/                       # API 请求/响应日志（按日期/任务ID组织）
-├── data/                       # SQLite 数据库文件
+│       ├── assistant.ts        # 助手服务
+│       ├── conversation.ts     # 对话服务
+│       ├── chat.ts             # 对话生成服务
+│       ├── streamingTask.ts    # 流式任务管理
+│       ├── streamingCache.ts   # 流式内容缓存
+│       ├── logger.ts           # 请求日志服务
+│       └── image.ts            # 图片处理服务
+├── logs/                       # API 请求/响应日志
+├── data/                       # SQLite 数据库文件（mj-studio.db）
 ├── drizzle.config.ts           # Drizzle 配置
 └── nuxt.config.ts              # Nuxt 配置
 ```
@@ -292,3 +308,103 @@ toast.add({ title: '请注意', color: 'warning' })
 ```
 
 常用图标：`plus`、`trash`、`pencil`、`x-mark`、`chevron-down`、`cpu-chip`、`user-circle`、`cloud-arrow-up`
+
+## 数据库迁移
+
+本项目使用 Drizzle ORM 管理数据库迁移。
+
+### 迁移命令
+
+```bash
+# 生成迁移文件（根据 schema.ts 变更）
+pnpm db:generate
+
+# 执行迁移
+pnpm db:migrate
+```
+
+### 迁移文件结构
+
+```
+server/database/migrations/
+├── meta/
+│   └── _journal.json           # 迁移记录索引
+├── 0000_last_proemial_gods.sql # 初始表结构
+├── 0001_productive_prima.sql
+├── ...
+└── 0006_add_message_status.sql # 最新迁移
+```
+
+### 添加新迁移
+
+1. 修改 `server/database/schema.ts` 中的表结构
+2. 运行 `pnpm db:generate` 生成迁移文件
+3. 检查生成的 SQL 文件是否正确
+4. 运行 `pnpm db:migrate` 执行迁移
+5. 提交 schema.ts 和迁移文件
+
+### 注意事项
+
+- 数据库文件位于 `data/mj-studio.db`
+- 迁移记录存储在 `__drizzle_migrations` 表中
+- 生产环境部署时需要执行 `pnpm db:migrate`
+
+## 流式输出系统
+
+对话模块采用后端独立状态机模式实现流式输出，详细设计见 [流式输出系统设计和实现规范](docs/流式输出系统设计和实现规范.md)。
+
+### 架构概览
+
+```
+前端                          后端
+  │                            │
+  ├─ POST /messages ──────────►│ 创建消息，返回 messageId
+  │                            │
+  ├─ GET /messages/:id/stream ►│ SSE 订阅
+  │◄─────── data: {content} ───│ 流式推送内容
+  │◄─────── data: {done} ──────│ 完成信号
+  │                            │
+  ├─ POST /messages/:id/stop ─►│ 中止生成
+```
+
+### 消息状态流转
+
+```
+created → pending → streaming → completed
+                            ↘ stopped
+                            ↘ failed
+```
+
+### 关键文件
+
+- `server/services/streamingTask.ts` - 流式任务管理
+- `server/services/streamingCache.ts` - 内容缓存（支持断线重连）
+- `app/composables/useConversations.ts` - 前端 SSE 订阅和打字机效果
+
+## 认证系统
+
+使用 JWT + localStorage 实现认证：
+
+- 登录成功后返回 JWT token，前端存储在 localStorage
+- 请求时通过 `Authorization: Bearer <token>` 头传递
+- SSE 流式请求也需要携带认证头
+
+### 关键文件
+
+- `server/api/auth/login.post.ts` - 登录接口
+- `app/composables/useAuth.ts` - 前端认证状态管理
+
+## 环境变量
+
+必需的环境变量（存放在 `.env` 文件）：
+
+```bash
+# JWT 密钥（必需）
+JWT_SECRET=your-secret-key
+
+# 数据库文件路径（可选，默认 data/mj-studio.db）
+DATABASE_URL=data/mj-studio.db
+
+# HMR 端口（可选，用于 Docker 环境）
+NUXT_HMR_PORT=24678
+```

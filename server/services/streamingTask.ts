@@ -15,7 +15,7 @@ import {
   getStreamingSession,
   getSessionAbortController,
 } from './streamingCache'
-import type { Message, MessageMark, MessageStatus } from '../database/schema'
+import type { Message, MessageMark, MessageStatus, MessageFile } from '../database/schema'
 import type { LogContext } from '../utils/logger'
 
 interface StreamingTaskParams {
@@ -23,6 +23,7 @@ interface StreamingTaskParams {
   conversationId: number
   userId: number
   userContent: string         // 用户消息内容
+  userFiles?: MessageFile[]   // 用户消息附件
   isCompressRequest?: boolean
   responseMark?: MessageMark
   responseSortId?: number
@@ -35,6 +36,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     conversationId,
     userId,
     userContent,
+    userFiles,
     isCompressRequest = false,
     responseMark,
     responseSortId,
@@ -126,6 +128,7 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       assistant.systemPrompt,
       historyMessages,
       userContent,
+      userFiles,
       abortController.signal,
       logContext
     )

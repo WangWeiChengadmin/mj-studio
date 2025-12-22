@@ -61,42 +61,47 @@ function handleLogout() {
 
       <!-- 导航 + 右侧操作 -->
       <div class="flex items-center gap-2">
-        <!-- 导航链接（已登录且 showNav 时显示） -->
-        <template v-if="loggedIn && showNav !== false">
-          <NuxtLink
-            v-for="item in navItems"
-            :key="item.to"
-            :to="item.to"
-          >
-            <UButton
-              variant="ghost"
-              size="sm"
-              :class="{ 'bg-(--ui-primary)/10 text-(--ui-primary)': route.path.startsWith(item.to) }"
+        <!-- 导航链接（已登录且 showNav 时显示，客户端渲染避免 hydration 不匹配） -->
+        <ClientOnly>
+          <template v-if="loggedIn && showNav !== false">
+            <NuxtLink
+              v-for="item in navItems"
+              :key="item.to"
+              :to="item.to"
             >
-              <UIcon :name="item.icon" class="w-4 h-4 md:mr-1" />
-              <span class="hidden md:inline">{{ item.label }}</span>
-            </UButton>
-          </NuxtLink>
-        </template>
+              <UButton
+                variant="ghost"
+                size="sm"
+                :class="{ 'bg-(--ui-primary)/10 text-(--ui-primary)': route.path.startsWith(item.to) }"
+              >
+                <UIcon :name="item.icon" class="w-4 h-4 md:mr-1" />
+                <span class="hidden md:inline">{{ item.label }}</span>
+              </UButton>
+            </NuxtLink>
+          </template>
+        </ClientOnly>
 
         <UColorModeButton />
 
-        <!-- 用户菜单（已登录） -->
-        <UDropdownMenu v-if="loggedIn" :items="userMenuItems">
-          <UButton variant="ghost" size="sm" class="p-1">
-            <img
-              v-if="userProfile?.avatar"
-              :src="userProfile.avatar"
-              class="w-7 h-7 rounded-full object-cover"
-            />
-            <UIcon v-else name="i-heroicons-user-circle" class="w-6 h-6" />
-          </UButton>
-        </UDropdownMenu>
-
-        <!-- 登录按钮（未登录） -->
-        <NuxtLink v-else to="/login">
-          <UButton size="sm">登录</UButton>
-        </NuxtLink>
+        <!-- 用户菜单/登录按钮（客户端渲染避免 hydration 不匹配） -->
+        <ClientOnly>
+          <UDropdownMenu v-if="loggedIn" :items="userMenuItems">
+            <UButton variant="ghost" size="sm" class="p-1">
+              <img
+                v-if="userProfile?.avatar"
+                :src="userProfile.avatar"
+                class="w-7 h-7 rounded-full object-cover"
+              />
+              <UIcon v-else name="i-heroicons-user-circle" class="w-6 h-6" />
+            </UButton>
+          </UDropdownMenu>
+          <NuxtLink v-else to="/login">
+            <UButton size="sm">登录</UButton>
+          </NuxtLink>
+          <template #fallback>
+            <div class="w-7 h-7" />
+          </template>
+        </ClientOnly>
       </div>
     </div>
   </header>

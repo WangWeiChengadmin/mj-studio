@@ -2,7 +2,7 @@
 import { saveFile, getFileUrl } from '../../services/file'
 
 export default defineEventHandler(async (event) => {
-  await requireUserSession(event)
+  await requireAuth(event)
 
   // 读取 multipart/form-data
   const formData = await readMultipartFormData(event)
