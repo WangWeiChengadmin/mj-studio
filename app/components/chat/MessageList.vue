@@ -288,6 +288,17 @@ async function copyMessage(content: string) {
 const deleteConfirmId = ref<number | null>(null)
 const showDeleteConfirm = ref(false)
 
+// 移动端点击显示操作按钮的消息 ID
+const activeMessageId = ref<number | null>(null)
+
+function toggleMessageActions(id: number) {
+  activeMessageId.value = activeMessageId.value === id ? null : id
+}
+
+function isMessageActive(id: number): boolean {
+  return activeMessageId.value === id
+}
+
 // 压缩响应展开状态（默认折叠）
 const expandedCompressResponses = ref<Set<number>>(new Set())
 
@@ -460,14 +471,11 @@ function isEditing(messageId: number): boolean {
       <!-- 消息内容 -->
       <div
         class="group min-w-0"
-        :class="[
-          isEditing(message.id) ? 'w-[85%]' : 'max-w-[85%]',
-          message.role === 'user' ? 'text-right' : ''
-        ]"
+        :class="isEditing(message.id) ? 'w-[85%]' : 'max-w-[85%]'"
       >
         <div
           :class="[
-            'px-4 py-2 rounded-2xl max-w-full overflow-hidden',
+            'px-4 py-2 rounded-2xl max-w-full overflow-hidden cursor-pointer md:cursor-auto',
             isEditing(message.id) ? 'block' : 'inline-block',
             message.role === 'user' && message.mark !== 'compress-request'
               ? 'bg-(--ui-primary) text-white rounded-tr-sm'
@@ -479,6 +487,7 @@ function isEditing(messageId: number): boolean {
                     ? 'bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-tl-sm'
                     : 'bg-(--ui-bg-elevated) rounded-tl-sm'
           ]"
+          @click="toggleMessageActions(message.id)"
         >
           <!-- 压缩请求消息 -->
           <div v-if="message.mark === 'compress-request'" class="text-sm">
@@ -640,7 +649,6 @@ function isEditing(messageId: number): boolean {
         <!-- 消息元信息 -->
         <div
           class="mt-1 text-xs text-(--ui-text-dimmed) flex items-center gap-2"
-          :class="message.role === 'user' ? 'justify-end' : ''"
         >
           <span>{{ formatTime(message.createdAt) }}</span>
           <span v-if="message.modelName" class="opacity-70">{{ message.modelName }}</span>
@@ -650,7 +658,10 @@ function isEditing(messageId: number): boolean {
             <!-- 编辑按钮 -->
             <button
               v-if="!isStreaming && message.mark !== 'compress-request' && message.mark !== 'compress-response'"
-              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+              :class="[
+                'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
+                isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
+              ]"
               title="编辑"
               @click="startEdit(message)"
             >
@@ -659,7 +670,10 @@ function isEditing(messageId: number): boolean {
             <!-- 重放按钮 -->
             <button
               v-if="!isStreaming"
-              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+              :class="[
+                'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
+                isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
+              ]"
               :title="message.role === 'user' ? '重新发送' : '重新生成'"
               @click="emit('replay', message)"
             >
@@ -668,7 +682,10 @@ function isEditing(messageId: number): boolean {
             <!-- 删除按钮 -->
             <button
               v-if="!isStreaming"
-              class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+              :class="[
+                'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
+                isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
+              ]"
               title="删除"
               @click="handleDelete(message.id)"
             >
@@ -698,7 +715,10 @@ function isEditing(messageId: number): boolean {
               ]"
             >
               <button
-                class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded"
+                :class="[
+                  'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
+                  isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
+                ]"
                 title="更多操作"
               >
                 <UIcon name="i-heroicons-ellipsis-horizontal" class="w-3 h-3" />
