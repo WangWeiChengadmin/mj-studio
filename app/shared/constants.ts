@@ -327,7 +327,7 @@ export const MODEL_USAGE_HINTS: Record<ImageModelType, { text: string; type: 'wa
  * - 使用场景：
  *   - DrawingPanel.vue: supportsReferenceImages computed 计算
  */
-export const MODELS_WITHOUT_REFERENCE_IMAGE: ImageModelType[] = ['dalle']
+export const MODELS_WITHOUT_REFERENCE_IMAGE: ImageModelType[] = ['dalle', 'z-image']
 
 /**
  * 支持负面提示词的模型列表

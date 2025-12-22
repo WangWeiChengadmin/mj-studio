@@ -68,6 +68,9 @@ const currentModelHint = computed(() => {
   return MODEL_USAGE_HINTS[selectedModelTypeConfig.value.modelType as ImageModelType]
 })
 
+// 模型信息模态框状态
+const showModelInfoModal = ref(false)
+
 // 上游选择下拉菜单项
 const upstreamDropdownItems = computed(() => {
   return props.modelConfigs.map(config => ({
@@ -225,7 +228,19 @@ defineExpose({
     </UFormField>
 
     <!-- 模型类型选择（当上游支持绘图模型时显示） -->
-    <UFormField v-if="availableModelTypes.length >= 1" label="选择模型" class="mb-4">
+    <UFormField v-if="availableModelTypes.length >= 1" class="mb-4">
+      <template #label>
+        <span class="inline-flex items-center gap-1.5">
+          选择模型
+          <button
+            type="button"
+            class="inline-flex items-center text-(--ui-text-muted) hover:text-(--ui-text) transition-colors"
+            @click="showModelInfoModal = true"
+          >
+            <UIcon name="i-heroicons-information-circle" class="w-3.5 h-3.5" />
+          </button>
+        </span>
+      </template>
       <div class="grid grid-cols-2 gap-2">
         <button
           v-for="mtc in availableModelTypes"
@@ -250,34 +265,45 @@ defineExpose({
       </div>
     </UFormField>
 
-    <!-- 当前模型信息（请求格式、模型名称） -->
-    <div v-if="selectedModelTypeConfig" class="mb-4 text-xs text-(--ui-text-dimmed)">
-      <span>{{ API_FORMAT_LABELS[selectedModelTypeConfig.apiFormat] || selectedModelTypeConfig.apiFormat }}</span>
-      <span class="mx-1.5">·</span>
-      <span class="font-mono">{{ selectedModelTypeConfig.modelName }}</span>
-    </div>
-
-    <!-- 模型使用提示 -->
-    <div
-      v-if="currentModelHint"
-      class="mb-4 p-3 rounded-lg border"
-      :class="currentModelHint.type === 'warning'
-        ? 'bg-amber-500/10 border-amber-500/30'
-        : 'bg-(--ui-primary)/10 border-(--ui-primary)/30'"
-    >
-      <div class="flex items-start gap-2">
-        <UIcon
-          :name="currentModelHint.type === 'warning' ? 'i-heroicons-exclamation-triangle' : 'i-heroicons-light-bulb'"
-          :class="['w-4 h-4 mt-0.5 shrink-0', currentModelHint.type === 'warning' ? 'text-amber-500' : 'text-(--ui-primary)']"
-        />
-        <p
-          class="text-sm"
-          :class="currentModelHint.type === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-(--ui-primary)'"
-        >
-          {{ currentModelHint.text }}
-        </p>
-      </div>
-    </div>
+    <!-- 模型信息模态框 -->
+    <UModal v-model:open="showModelInfoModal" title="模型信息">
+      <template #body>
+        <div v-if="selectedModelTypeConfig" class="space-y-3">
+          <div class="flex items-center gap-2 text-sm">
+            <span class="text-(--ui-text-muted)">请求格式：</span>
+            <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[selectedModelTypeConfig.apiFormat] || selectedModelTypeConfig.apiFormat }}</span>
+          </div>
+          <div class="flex items-center gap-2 text-sm">
+            <span class="text-(--ui-text-muted)">模型名称：</span>
+            <span class="text-(--ui-text) font-mono">{{ selectedModelTypeConfig.modelName }}</span>
+          </div>
+          <div
+            v-if="currentModelHint"
+            class="mt-4 p-3 rounded-lg border"
+            :class="currentModelHint.type === 'warning'
+              ? 'bg-amber-500/10 border-amber-500/30'
+              : 'bg-(--ui-primary)/10 border-(--ui-primary)/30'"
+          >
+            <div class="flex items-start gap-2">
+              <UIcon
+                :name="currentModelHint.type === 'warning' ? 'i-heroicons-exclamation-triangle' : 'i-heroicons-light-bulb'"
+                :class="['w-4 h-4 mt-0.5 shrink-0', currentModelHint.type === 'warning' ? 'text-amber-500' : 'text-(--ui-primary)']"
+              />
+              <p
+                class="text-sm"
+                :class="currentModelHint.type === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-(--ui-primary)'"
+              >
+                {{ currentModelHint.text }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <p v-else class="text-(--ui-text-muted) text-sm">请先选择一个模型</p>
+      </template>
+      <template #footer>
+        <UButton variant="ghost" @click="showModelInfoModal = false">关闭</UButton>
+      </template>
+    </UModal>
 
     <!-- 参考图上传区 -->
     <UFormField v-if="supportsReferenceImages" label="参考图 (可选，最多3张)" class="mb-6">
