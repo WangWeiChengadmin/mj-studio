@@ -40,6 +40,9 @@ RUN addgroup --system --gid 1001 nodejs && \
 # Copy built application
 COPY --from=builder --chown=nuxt:nodejs /app/.output /app/.output
 
+# Copy database migrations (for auto-migration on startup)
+COPY --from=builder --chown=nuxt:nodejs /app/server/database/migrations /app/server/database/migrations
+
 # Create data directory for SQLite
 RUN mkdir -p /app/data && chown nuxt:nodejs /app/data
 
