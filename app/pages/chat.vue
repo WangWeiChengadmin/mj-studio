@@ -377,7 +377,7 @@ onUnmounted(() => {
 <template>
   <div class="h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden">
     <!-- 移动端抽屉按钮栏 -->
-    <div class="h-12 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 md:hidden">
+    <div class="h-12 flex items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 lg:hidden">
       <UButton variant="ghost" size="sm" @click="showLeftDrawer = true">
         <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
         <span class="ml-1">助手</span>
@@ -394,7 +394,7 @@ onUnmounted(() => {
     <!-- 主体内容 -->
     <div class="flex-1 flex overflow-hidden min-h-0">
       <!-- 左侧：助手列表（桌面端显示） -->
-      <div class="w-[300px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border) hidden md:block">
+      <div class="w-[300px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border) hidden lg:block">
         <ChatAssistantList
           :assistants="assistants"
           :current-assistant-id="currentAssistantId"
@@ -406,7 +406,7 @@ onUnmounted(() => {
       <!-- 中间：消息区域（始终显示） -->
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
         <!-- 桌面端对话标题栏 -->
-        <div v-if="currentConversation" class="h-12 items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 hidden md:flex">
+        <div v-if="currentConversation" class="h-12 items-center px-4 border-b border-(--ui-border) bg-(--ui-bg-elevated) flex-shrink-0 hidden lg:flex">
           <span class="font-medium truncate">{{ currentConversation.title }}</span>
         </div>
 
@@ -442,7 +442,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 右侧：助手信息 + 对话列表（桌面端显示） -->
-      <div class="w-[310px] flex-shrink-0 flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border) hidden md:flex">
+      <div class="w-[310px] flex-shrink-0 flex-col overflow-hidden bg-(--ui-bg-elevated) border-l border-(--ui-border) hidden lg:flex">
         <!-- 助手信息 -->
         <ChatAssistantInfo
           :assistant="currentAssistant"
@@ -464,7 +464,7 @@ onUnmounted(() => {
     </div>
 
     <!-- 移动端左侧抽屉（助手列表） -->
-    <UDrawer v-model:open="showLeftDrawer" direction="left" title="助手列表">
+    <UDrawer v-model:open="showLeftDrawer" direction="left" title="助手列表" :ui="{ content: 'w-4/5' }">
       <template #body>
         <ChatAssistantList
           :assistants="assistants"
@@ -477,7 +477,7 @@ onUnmounted(() => {
     </UDrawer>
 
     <!-- 移动端右侧抽屉（助手信息 + 对话列表） -->
-    <UDrawer v-model:open="showRightDrawer" direction="right" title="对话">
+    <UDrawer v-model:open="showRightDrawer" direction="right" title="对话" :ui="{ content: 'w-4/5' }">
       <template #body>
         <div class="flex flex-col h-full">
           <!-- 助手信息 -->

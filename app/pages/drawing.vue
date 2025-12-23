@@ -64,14 +64,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-3.5rem)] flex overflow-hidden">
-    <!-- 左侧：绘图面板 -->
-    <div class="w-[380px] flex-shrink-0 overflow-y-auto border-r border-(--ui-border) p-4">
+  <div class="h-[calc(100vh-3.5rem)] flex flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+    <!-- 绘图面板 -->
+    <div class="flex-shrink-0 border-b lg:border-b-0 lg:border-r border-(--ui-border) p-4 lg:w-[380px] lg:overflow-y-auto">
       <DrawingWorkbench ref="drawingPanelRef" :model-configs="modelConfigs" @submit="handleSubmit" />
     </div>
 
-    <!-- 右侧：任务列表 -->
-    <div class="flex-1 overflow-y-auto p-4">
+    <!-- 任务列表 -->
+    <div class="flex-1 p-4 lg:overflow-y-auto">
       <DrawingList @copy-to-panel="handleCopyToPanel" />
     </div>
   </div>

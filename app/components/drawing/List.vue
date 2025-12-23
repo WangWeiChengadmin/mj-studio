@@ -54,11 +54,16 @@ function handleBlur(taskId: number, isBlurred: boolean) {
   }
 }
 
-// 模糊全部
+// 获取当前页有图片的任务ID
+function getCurrentPageTaskIds() {
+  return tasks.value.filter(t => t.imageUrl).map(t => t.id)
+}
+
+// 模糊当前页
 async function blurAll() {
   blurLoading.value = true
   try {
-    await batchBlur(true)
+    await batchBlur(true, getCurrentPageTaskIds())
   } catch (error: any) {
     alert(error.data?.message || error.message || '操作失败')
   } finally {
@@ -66,11 +71,11 @@ async function blurAll() {
   }
 }
 
-// 取消模糊
+// 取消模糊当前页
 async function unblurAll() {
   blurLoading.value = true
   try {
-    await batchBlur(false)
+    await batchBlur(false, getCurrentPageTaskIds())
   } catch (error: any) {
     alert(error.data?.message || error.message || '操作失败')
   } finally {
@@ -99,8 +104,8 @@ function handlePageChange() {
             :disabled="blurLoading"
             @click="blurAll"
           >
-            <UIcon name="i-heroicons-eye-slash" class="w-4 h-4 mr-1" />
-            模糊全部
+            <UIcon name="i-heroicons-eye-slash" class="w-4 h-4 lg:mr-1" />
+            <span class="hidden lg:inline">模糊本页</span>
           </UButton>
           <UButton
             size="xs"
@@ -110,14 +115,15 @@ function handlePageChange() {
             :disabled="blurLoading"
             @click="unblurAll"
           >
-            <UIcon name="i-heroicons-eye" class="w-4 h-4 mr-1" />
-            显示全部
+            <UIcon name="i-heroicons-eye" class="w-4 h-4 lg:mr-1" />
+            <span class="hidden lg:inline">显示本页</span>
           </UButton>
         </div>
         <!-- 回收站 -->
         <NuxtLink to="/trash">
           <UButton size="xs" variant="ghost" color="neutral">
-            回收站
+            <UIcon name="i-heroicons-trash" class="w-4 h-4 lg:mr-1" />
+            <span class="hidden lg:inline">回收站</span>
           </UButton>
         </NuxtLink>
         <span class="text-(--ui-text-dimmed) text-sm">共 {{ total }} 个任务</span>
