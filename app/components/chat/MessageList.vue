@@ -205,6 +205,8 @@ function startStreamingRender() {
         renderMessage(msg)
       }
     }
+    // 流式输出时跟随滚动（与渲染同步，避免高频滚动抖动）
+    scrollToBottom()
   }, 150)
 }
 
@@ -244,7 +246,12 @@ function isMessageStopped(message: Message): boolean {
 // 检查是否需要显示原始内容
 function shouldShowRaw(message: Message): boolean {
   if (message.role === 'user') return true
-  // 还没有渲染完成时显示原始内容
+  // 流式输出中的消息，只要有内容就尝试显示渲染结果（即使还没渲染完成）
+  // 这样可以在流式输出时也显示 Markdown
+  if (message.status === 'streaming' && message.content) {
+    return false
+  }
+  // 非流式消息，还没有渲染完成时显示原始内容
   if (!renderedMessages.value.has(message.id)) {
     return true
   }
@@ -253,9 +260,13 @@ function shouldShowRaw(message: Message): boolean {
 
 // 监听消息变化，自动滚动
 // 新消息添加时强制滚动到底部（让用户看到新消息）
-watch(() => props.messages.length, forceScrollToBottom)
-// 流式输出时，只有用户在底部才跟随滚动
-watch(() => props.messages[props.messages.length - 1]?.content, scrollToBottom)
+// 注意：只在消息数量增加时滚动，删除消息时不滚动
+watch(() => props.messages.length, (newLen, oldLen) => {
+  if (newLen > oldLen) {
+    forceScrollToBottom()
+  }
+})
+// 流式输出时的滚动已移至 startStreamingRender 定时器中，避免高频滚动导致抖动
 
 // 监听消息列表变化，渲染已完成的消息（不使用 deep，只在消息数量变化时触发）
 watch(

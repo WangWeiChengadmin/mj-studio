@@ -320,6 +320,11 @@ export function useConversations() {
                 // 追加到缓冲区，打字机效果会逐字渲染
                 contentBuffer += parsed.content
                 startTyping()
+                // 更新消息状态为 streaming
+                const targetMessage = getStreamingMessage()
+                if (targetMessage && targetMessage.status !== 'streaming') {
+                  targetMessage.status = 'streaming'
+                }
               }
             } catch {
               // JSON 解析错误则忽略
