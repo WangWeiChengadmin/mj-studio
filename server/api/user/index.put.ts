@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const { user: sessionUser } = await requireAuth(event)
 
   const body = await readBody(event)
-  const { name, avatar, blurByDefault } = body
+  const { name, avatar } = body
 
   // 构建更新对象
   const updateData: Record<string, any> = {}
@@ -19,10 +19,6 @@ export default defineEventHandler(async (event) => {
   if (avatar !== undefined) {
     // 头像可以是 base64 或 URL
     updateData.avatar = avatar || null
-  }
-
-  if (blurByDefault !== undefined) {
-    updateData.blurByDefault = Boolean(blurByDefault)
   }
 
   // 如果没有需要更新的字段
@@ -38,7 +34,6 @@ export default defineEventHandler(async (event) => {
     email: users.email,
     name: users.name,
     avatar: users.avatar,
-    blurByDefault: users.blurByDefault,
     createdAt: users.createdAt,
   }).from(users).where(eq(users.id, sessionUser.id)).limit(1)
 

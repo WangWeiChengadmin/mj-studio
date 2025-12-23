@@ -1,9 +1,11 @@
 // POST /api/assistants/[id]/suggestions - AI 生成对话开场白建议
 import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
+import { useUserSettingsService } from '../../../services/userSettings'
 import { createChatService } from '../../../services/chat'
 import { useSuggestionsCache } from '../../../services/suggestionsCache'
 import type { LogContext } from '../../../utils/logger'
+import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -56,6 +58,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: '模型配置不存在' })
   }
 
+  // 获取用户设置
+  const settingsService = useUserSettingsService()
+  const suggestionsPrompt = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_SUGGESTIONS)
+  const suggestionsCount = await settingsService.get<number>(user.id, USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT)
+
   // 构建提示词
   const now = new Date()
   const timeStr = now.toLocaleString('zh-CN', {
@@ -68,12 +75,7 @@ export default defineEventHandler(async (event) => {
   })
 
   const prompt = `现在用户开始了一次新对话，当前时间是 ${timeStr}。
-请根据你的角色定位，为用户提供 5 条开场白建议，帮助用户快速开始对话。
-要求：
-1. 每条建议简洁明了，10-30 字
-2. 建议应该多样化，覆盖不同场景
-3. 以 JSON 数组格式返回，例如：["问题1", "问题2", "问题3", "问题4", "问题5"]
-4. 直接输出 JSON，不要加其他说明`
+${suggestionsPrompt}`
 
   // 调用 AI 生成
   const chatService = createChatService(modelConfig)
@@ -113,10 +115,10 @@ export default defineEventHandler(async (event) => {
       console.error('解析开场白 JSON 失败:', response.content)
     }
 
-    // 确保是字符串数组，最多 5 条
+    // 确保是字符串数组，限制数量
     suggestions = suggestions
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-      .slice(0, 5)
+      .slice(0, suggestionsCount)
 
     // 存入缓存
     if (suggestions.length > 0) {

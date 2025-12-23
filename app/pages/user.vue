@@ -14,7 +14,6 @@ const isSaving = ref(false)
 const formData = reactive({
   name: '',
   avatar: '',
-  blurByDefault: true,
 })
 
 // 加载用户信息
@@ -24,7 +23,6 @@ async function loadUser() {
     const user = await $fetch('/api/user')
     formData.name = user.name || ''
     formData.avatar = user.avatar || ''
-    formData.blurByDefault = user.blurByDefault ?? true
   } catch (error: any) {
     toast.add({
       title: '加载失败',
@@ -79,7 +77,6 @@ async function onSubmit(event: FormSubmitEvent<typeof formData>) {
       body: {
         name: event.data.name?.trim() || null,
         avatar: event.data.avatar || null,
-        blurByDefault: event.data.blurByDefault,
       },
     })
     toast.add({ title: '设置已保存', color: 'success' })
@@ -161,22 +158,6 @@ async function onSubmit(event: FormSubmitEvent<typeof formData>) {
               class="w-full max-w-xs"
             />
           </UFormField>
-        </div>
-
-        <!-- 偏好设置卡片 -->
-        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-5">
-          <h2 class="text-lg font-medium text-(--ui-text)">偏好设置</h2>
-
-          <!-- 绘图结果默认模糊 -->
-          <label class="flex items-start gap-3 cursor-pointer">
-            <UCheckbox v-model="formData.blurByDefault" class="mt-0.5" />
-            <div>
-              <span class="text-(--ui-text) font-medium">绘图结果默认模糊</span>
-              <p class="text-sm text-(--ui-text-muted) mt-1">
-                开启后，新生成的图片会自动模糊显示，防止在公共场合被他人看到
-              </p>
-            </div>
-          </label>
         </div>
 
         <!-- 保存按钮 -->

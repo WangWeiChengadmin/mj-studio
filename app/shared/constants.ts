@@ -511,3 +511,62 @@ export function inferChatModelType(modelName: string): ChatModelType | null {
   }
   return null
 }
+
+// ==================== 用户设置默认值 ====================
+
+/**
+ * 用户设置键名枚举
+ */
+export const USER_SETTING_KEYS = {
+  // Prompt 设置
+  PROMPT_COMPRESS: 'prompt.compress',
+  PROMPT_GENERATE_TITLE: 'prompt.generateTitle',
+  PROMPT_SUGGESTIONS: 'prompt.suggestions',
+  // 通用设置
+  GENERAL_BLUR_BY_DEFAULT: 'general.blurByDefault',
+  GENERAL_COMPRESS_KEEP_COUNT: 'general.compressKeepCount',
+  GENERAL_TITLE_MAX_LENGTH: 'general.titleMaxLength',
+  GENERAL_SUGGESTIONS_COUNT: 'general.suggestionsCount',
+} as const
+
+export type UserSettingKey = typeof USER_SETTING_KEYS[keyof typeof USER_SETTING_KEYS]
+
+/**
+ * 默认对话压缩 Prompt
+ */
+export const DEFAULT_COMPRESS_PROMPT = `请将以上对话内容压缩为一份详细的摘要（约500-1000字），需要保留：
+1. 讨论的主要话题和结论
+2. 重要的技术细节、代码片段或配置信息
+3. 用户的关键需求和偏好
+4. 待解决的问题或后续任务
+
+直接输出摘要内容，不要加标题或格式说明。`
+
+/**
+ * 默认标题生成 Prompt
+ */
+export const DEFAULT_GENERATE_TITLE_PROMPT = `请根据以下对话内容，生成一个简洁的对话标题（10-20个字），直接输出标题，不要加引号或其他格式。`
+
+/**
+ * 默认开场白建议 Prompt
+ * 注意：实际使用时会在前面添加时间信息
+ */
+export const DEFAULT_SUGGESTIONS_PROMPT = `请根据你的角色定位，为用户提供开场白建议，帮助用户快速开始对话。
+要求：
+1. 每条建议简洁明了，10-30 字
+2. 建议应该多样化，覆盖不同场景
+3. 以 JSON 数组格式返回，例如：["问题1", "问题2", "问题3"]
+4. 直接输出 JSON，不要加其他说明`
+
+/**
+ * 用户设置默认值
+ */
+export const USER_SETTING_DEFAULTS: Record<UserSettingKey, string | number | boolean> = {
+  [USER_SETTING_KEYS.PROMPT_COMPRESS]: DEFAULT_COMPRESS_PROMPT,
+  [USER_SETTING_KEYS.PROMPT_GENERATE_TITLE]: DEFAULT_GENERATE_TITLE_PROMPT,
+  [USER_SETTING_KEYS.PROMPT_SUGGESTIONS]: DEFAULT_SUGGESTIONS_PROMPT,
+  [USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT]: true,
+  [USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT]: 4,
+  [USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH]: 30,
+  [USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT]: 5,
+}

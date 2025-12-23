@@ -193,6 +193,13 @@ pnpm db:migrate
 4. 运行 `pnpm db:migrate` 执行迁移
 5. 提交 schema.ts 和迁移文件
 
+### 迁移规范
+
+- **必须使用 `drizzle-kit generate`**：禁止手动编写迁移 SQL 文件
+- **禁止手动修改 meta 文件夹**：`_journal.json` 和 `*_snapshot.json` 由工具自动维护
+- **snapshot 文件的作用**：记录每次迁移后的完整 schema 状态，用于生成增量迁移
+- **重置迁移历史**：仅在开发阶段且未上生产时，可删除 `migrations/` 目录重新生成
+
 ## UI 组件规范
 
 本项目使用 **Nuxt UI 3**，遵循以下规范：

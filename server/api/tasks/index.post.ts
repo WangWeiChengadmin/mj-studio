@@ -1,11 +1,9 @@
 // POST /api/tasks - 创建生图任务
 import { useTaskService } from '../../services/task'
 import { useModelConfigService } from '../../services/modelConfig'
+import { useUserSettingsService } from '../../services/userSettings'
 import type { ModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
-import { IMAGE_MODEL_TYPES, API_FORMATS } from '../../../app/shared/constants'
-import { eq } from 'drizzle-orm'
-import { users } from '../../database/schema'
-import { db } from '../../database'
+import { IMAGE_MODEL_TYPES, API_FORMATS, USER_SETTING_KEYS } from '../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   // 需要登录
@@ -81,12 +79,10 @@ export default defineEventHandler(async (event) => {
   }
 
   const taskService = useTaskService()
+  const userSettingsService = useUserSettingsService()
 
   // 获取用户的 blurByDefault 设置
-  const [userData] = await db.select({ blurByDefault: users.blurByDefault })
-    .from(users)
-    .where(eq(users.id, user.id))
-    .limit(1)
+  const blurByDefault = await userSettingsService.get<boolean>(user.id, USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT)
 
   // 1. 先保存到数据库
   const task = await taskService.createTask({
@@ -99,7 +95,7 @@ export default defineEventHandler(async (event) => {
     negativePrompt,
     images: base64Array,
     type,
-    isBlurred: userData?.blurByDefault ?? true,
+    isBlurred: blurByDefault,
   })
 
   // 2. 异步提交到对应的生成服务（不阻塞响应）

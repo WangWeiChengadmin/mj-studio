@@ -11,7 +11,6 @@ export default defineEventHandler(async (event) => {
     email: users.email,
     name: users.name,
     avatar: users.avatar,
-    blurByDefault: users.blurByDefault,
     createdAt: users.createdAt,
   }).from(users).where(eq(users.id, sessionUser.id)).limit(1)
 

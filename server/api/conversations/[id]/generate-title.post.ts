@@ -2,9 +2,11 @@
 import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
 import { useModelConfigService } from '../../../services/modelConfig'
+import { useUserSettingsService } from '../../../services/userSettings'
 import { createChatService } from '../../../services/chat'
 import type { LogContext } from '../../../utils/logger'
 import { logTitleResponse } from '../../../utils/logger'
+import { USER_SETTING_KEYS } from '../../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -53,6 +55,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: '模型配置不存在' })
   }
 
+  // 获取用户设置
+  const settingsService = useUserSettingsService()
+  const titlePrompt = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_GENERATE_TITLE)
+  const titleMaxLength = await settingsService.get<number>(user.id, USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH)
+
   // 准备用于生成标题的消息（前2条 + 后2条）
   const contextMessages: string[] = []
 
@@ -72,7 +79,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // 构建提示词
-  const prompt = `请根据以下对话内容，生成一个简洁的对话标题（10-20个字），直接输出标题，不要加引号或其他格式：
+  const prompt = `${titlePrompt}
 
 ${contextMessages.join('\n\n')}`
 
@@ -110,8 +117,8 @@ ${contextMessages.join('\n\n')}`
       .trim()
 
     // 限制长度
-    if (title.length > 30) {
-      title = title.slice(0, 30) + '...'
+    if (title.length > titleMaxLength) {
+      title = title.slice(0, titleMaxLength) + '...'
     }
 
     // 更新对话标题

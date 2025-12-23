@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, unique } from 'drizzle-orm/sqlite-core'
 
 // 从共享模块导入类型和常量
 // 类型用于数据库字段定义，常量已移至 shared/constants.ts
@@ -25,7 +25,6 @@ export const users = sqliteTable('users', {
   password: text('password').notNull(), // hashed
   name: text('name'),
   avatar: text('avatar'), // 头像 base64 或 URL
-  blurByDefault: integer('blur_by_default', { mode: 'boolean' }).notNull().default(true), // 绘图结果默认模糊
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 
@@ -131,3 +130,20 @@ export const messages = sqliteTable('messages', {
 
 export type Message = typeof messages.$inferSelect
 export type NewMessage = typeof messages.$inferInsert
+
+// ==================== 用户设置表 ====================
+
+// 用户设置表（键值对形式）
+export const userSettings = sqliteTable('user_settings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').notNull(),
+  key: text('key').notNull(),
+  value: text('value').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => [
+  unique().on(table.userId, table.key),
+])
+
+export type UserSetting = typeof userSettings.$inferSelect
+export type NewUserSetting = typeof userSettings.$inferInsert

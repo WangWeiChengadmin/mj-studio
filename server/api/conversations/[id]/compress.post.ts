@@ -1,17 +1,10 @@
 // POST /api/conversations/[id]/compress - 发起对话压缩
 import { useConversationService } from '../../../services/conversation'
-
-// 压缩保留消息数
-const COMPRESS_KEEP_COUNT = 4
-
-// 压缩指令内容
-const COMPRESS_PROMPT = `请将以上对话内容压缩为一份详细的摘要（约500-1000字），需要保留：
-1. 讨论的主要话题和结论
-2. 重要的技术细节、代码片段或配置信息
-3. 用户的关键需求和偏好
-4. 待解决的问题或后续任务
-
-直接输出摘要内容，不要加标题或格式说明。`
+import { useUserSettingsService } from '../../../services/userSettings'
+import {
+  USER_SETTING_KEYS,
+  DEFAULT_COMPRESS_PROMPT,
+} from '../../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
@@ -25,6 +18,11 @@ export default defineEventHandler(async (event) => {
   if (isNaN(conversationId)) {
     throw createError({ statusCode: 400, message: '无效的对话ID' })
   }
+
+  // 获取用户设置
+  const settingsService = useUserSettingsService()
+  const compressKeepCount = await settingsService.get<number>(user.id, USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT)
+  const compressPrompt = await settingsService.get<string>(user.id, USER_SETTING_KEYS.PROMPT_COMPRESS)
 
   // 获取对话和消息
   const conversationService = useConversationService()
@@ -43,7 +41,7 @@ export default defineEventHandler(async (event) => {
   // 过滤掉压缩请求消息，只保留有效消息
   const validMessages = messages.filter(m => m.mark !== 'compress-request')
 
-  if (validMessages.length < COMPRESS_KEEP_COUNT + 2) {
+  if (validMessages.length < compressKeepCount + 2) {
     throw createError({ statusCode: 400, message: '对话消息太少，无需压缩' })
   }
 
@@ -59,7 +57,7 @@ export default defineEventHandler(async (event) => {
   // 计算压缩范围
   // 从上次压缩点之后开始（或从头开始），到保留消息之前
   const startIndex = lastCompressIndex >= 0 ? lastCompressIndex : 0
-  const endIndex = validMessages.length - COMPRESS_KEEP_COUNT
+  const endIndex = validMessages.length - compressKeepCount
 
   if (endIndex <= startIndex) {
     throw createError({ statusCode: 400, message: '可压缩的消息太少' })
@@ -83,7 +81,7 @@ export default defineEventHandler(async (event) => {
   const compressRequest = await conversationService.addMessage({
     conversationId,
     role: 'user',
-    content: COMPRESS_PROMPT,
+    content: compressPrompt,
     mark: 'compress-request',
     sortId: compressRequestSortId,
   })

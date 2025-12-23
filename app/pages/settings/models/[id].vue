@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConfig, ChatModelType } from '../../shared/types'
+import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConfig, ChatModelType } from '../../../shared/types'
 import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
 import {
   IMAGE_MODEL_TYPES,
@@ -11,7 +11,7 @@ import {
   MODEL_TYPE_LABELS,
   API_FORMAT_LABELS,
   inferChatModelType,
-} from '../../shared/constants'
+} from '../../../shared/constants'
 
 definePageMeta({
   middleware: 'auth',
@@ -104,7 +104,7 @@ async function loadConfigData() {
       }
     } else {
       toast.add({ title: '配置不存在', color: 'error' })
-      router.push('/settings')
+      router.push('/settings/models')
     }
   } else {
     // 新建时设置默认值
@@ -244,7 +244,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       })
       toast.add({ title: '配置已更新', color: 'success' })
     }
-    router.push('/settings')
+    router.push('/settings/models')
   } catch (error: any) {
     toast.add({
       title: '操作失败',
@@ -257,14 +257,13 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
 
 <template>
   <div class="p-6">
-    <div class="max-w-4xl mx-auto">
       <!-- 页面标题 -->
       <div class="mb-6 flex items-center justify-between">
         <div>
           <h1 class="text-2xl font-bold text-(--ui-text)">{{ pageTitle }}</h1>
           <p class="text-(--ui-text-muted) text-sm mt-1">配置 AI 服务的连接信息和支持的模型</p>
         </div>
-        <UButton variant="ghost" color="neutral" @click="router.push('/settings')">
+        <UButton variant="ghost" color="neutral" @click="router.push('/settings/models')">
           <UIcon name="i-heroicons-arrow-left" class="w-4 h-4 mr-1" />
           返回列表
         </UButton>
@@ -337,15 +336,15 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                   <p class="text-(--ui-text-muted) text-sm">暂无绘图模型，点击上方按钮添加</p>
                 </div>
 
-                <div v-else class="space-y-2">
+                <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   <div
                     v-for="(mtc, index) in imageModelConfigs"
                     :key="index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
                     <div class="flex items-center justify-between mb-2">
-                      <span class="text-sm font-medium text-(--ui-text)">
-                        #{{ index + 1 }} 🎨 {{ MODEL_TYPE_LABELS[mtc.modelType] || mtc.modelType || '未选择' }}
+                      <span class="text-sm font-medium text-(--ui-text) truncate">
+                        🎨 {{ MODEL_TYPE_LABELS[mtc.modelType] || '未选择' }}
                       </span>
                       <UButton
                         size="xs"
@@ -358,7 +357,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                       </UButton>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="space-y-2">
                       <UFormField label="模型类型">
                         <USelectMenu
                           v-model="mtc.modelType"
@@ -377,10 +376,8 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                           class="w-full"
                         />
                       </UFormField>
-                    </div>
 
-                    <div class="grid grid-cols-2 gap-2 mt-2">
-                      <UFormField label="模型名称" help="不同中转站可能不同">
+                      <UFormField label="模型名称">
                         <UInput
                           v-model="mtc.modelName"
                           :placeholder="DEFAULT_MODEL_NAMES[mtc.modelType as ModelType] || '可选'"
@@ -388,7 +385,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                         />
                       </UFormField>
 
-                      <UFormField label="预计生成时间（秒）">
+                      <UFormField label="预计时间(秒)">
                         <UInput
                           v-model.number="mtc.estimatedTime"
                           type="number"
@@ -423,7 +420,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                   <p class="text-(--ui-text-muted) text-sm">暂无对话模型，点击上方按钮添加</p>
                 </div>
 
-                <div v-else class="space-y-2">
+                <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   <div
                     v-for="(mtc, index) in chatModelConfigs"
                     :key="index"
@@ -431,9 +428,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                   >
                     <div class="flex items-center justify-between mb-3">
                       <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium text-(--ui-text)">
-                          #{{ index + 1 }} 💬
-                        </span>
+                        <span class="text-sm font-medium text-(--ui-text)">💬</span>
                         <span
                           class="text-xs px-2 py-0.5 rounded-full"
                           :class="getInferredModelType(mtc.modelName).type
@@ -496,11 +491,10 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
           <UButton type="submit" class="flex-1" size="lg">
             {{ isNew ? '创建配置' : '保存修改' }}
           </UButton>
-          <UButton type="button" variant="outline" color="neutral" class="flex-1" size="lg" @click="router.push('/settings')">
+          <UButton type="button" variant="outline" color="neutral" class="flex-1" size="lg" @click="router.push('/settings/models')">
             取消
           </UButton>
         </div>
       </UForm>
-    </div>
   </div>
 </template>

@@ -1,0 +1,1 @@
+ALTER TABLE `users` DROP COLUMN `blur_by_default`;
