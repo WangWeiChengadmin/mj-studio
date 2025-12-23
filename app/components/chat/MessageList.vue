@@ -697,16 +697,19 @@ function isEditing(messageId: number): boolean {
                   }
                 ]
               ]"
+              @update:open="(open: boolean) => activeMessageId = open ? message.id : null"
             >
-              <button
+              <UButton
+                variant="ghost"
+                size="xs"
                 :class="[
-                  'transition-opacity p-1 hover:bg-(--ui-bg-elevated) rounded',
+                  'transition-opacity',
                   isMessageActive(message.id) ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'
                 ]"
                 title="更多操作"
               >
-                <UIcon name="i-heroicons-ellipsis-horizontal" class="w-3 h-3" />
-              </button>
+                <UIcon name="i-heroicons-ellipsis-vertical" class="w-3 h-3" />
+              </UButton>
             </UDropdownMenu>
           </template>
         </div>

@@ -41,7 +41,7 @@ const userMenuItems = computed(() => [
   { type: 'separator' as const },
   { label: '用户设置', icon: 'i-heroicons-user', to: '/user' },
   { type: 'separator' as const },
-  { label: '退出登录', icon: 'i-heroicons-arrow-right-on-rectangle', click: handleLogout },
+  { label: '退出登录', icon: 'i-heroicons-arrow-right-on-rectangle', onSelect: handleLogout },
 ])
 
 function handleLogout() {

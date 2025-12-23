@@ -163,13 +163,15 @@ function handleKeydown(e: KeyboardEvent) {
             ]"
           >
             <template #default="{ open }">
-              <button
-                class="absolute right-2 top-2 p-1 transition-opacity"
+              <UButton
+                variant="ghost"
+                size="xs"
+                class="absolute right-2 top-2 transition-opacity"
                 :class="open ? 'opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'"
                 @click.stop
               >
                 <UIcon name="i-heroicons-ellipsis-vertical" class="w-4 h-4" />
-              </button>
+              </UButton>
             </template>
           </UDropdownMenu>
         </div>

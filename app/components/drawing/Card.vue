@@ -170,7 +170,7 @@ const dropdownItems = computed(() => {
       ...upscaleButtons.map(btn => ({
         label: btn.label,
         icon: 'i-heroicons-arrows-pointing-out',
-        click: () => handleAction(btn.customId)
+        onSelect: () => handleAction(btn.customId)
       }))
     ])
   }
@@ -183,7 +183,7 @@ const dropdownItems = computed(() => {
       ...variationButtons.map(btn => ({
         label: btn.label,
         icon: 'i-heroicons-sparkles',
-        click: () => handleAction(btn.customId)
+        onSelect: () => handleAction(btn.customId)
       }))
     ])
   }
@@ -195,7 +195,7 @@ const dropdownItems = computed(() => {
       {
         label: '重绘',
         icon: 'i-heroicons-arrow-path',
-        click: () => handleAction(rerollButton.customId)
+        onSelect: () => handleAction(rerollButton.customId)
       }
     ])
   }
