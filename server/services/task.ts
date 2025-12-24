@@ -1,7 +1,7 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
 import { tasks, modelConfigs, type Task, type TaskStatus, type ModelConfig, type ModelType, type ApiFormat, type ModelTypeConfig } from '../database/schema'
-import { eq, desc, isNull, isNotNull, and, inArray, sql } from 'drizzle-orm'
+import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
@@ -62,7 +62,7 @@ export function useTaskService() {
   // 根据 uniqueId 查找任务（用于嵌入式绘图组件）
   async function findByUniqueId(uniqueId: string, userId: number): Promise<Task | undefined> {
     return db.query.tasks.findFirst({
-      where: and(eq(tasks.uniqueId, uniqueId), eq(tasks.userId, userId)),
+      where: and(eq(tasks.uniqueId, uniqueId), eq(tasks.userId, userId), isNull(tasks.deletedAt)),
     })
   }
 
@@ -128,8 +128,13 @@ export function useTaskService() {
     }
   }
 
-  // 获取用户任务列表（包含精简的模型配置信息，支持分页）
-  async function listTasks(userId: number, options: { page?: number; pageSize?: number } = {}): Promise<{
+  // 获取用户任务列表（包含精简的模型配置信息，支持分页和筛选）
+  async function listTasks(userId: number, options: {
+    page?: number
+    pageSize?: number
+    sourceType?: 'workbench' | 'chat' | 'all'
+    keyword?: string
+  } = {}): Promise<{
     tasks: Array<Task & { modelConfig?: TaskModelConfigSummary }>
     total: number
     page: number
@@ -137,16 +142,39 @@ export function useTaskService() {
   }> {
     const page = options.page ?? 1
     const pageSize = options.pageSize ?? 20
+    const sourceType = options.sourceType ?? 'workbench'
+    const keyword = options.keyword
 
-    // 查询总数（不包含已删除）
+    // 构建筛选条件
+    const conditions = [eq(tasks.userId, userId), isNull(tasks.deletedAt)]
+
+    // 来源筛选
+    if (sourceType !== 'all') {
+      conditions.push(eq(tasks.sourceType, sourceType))
+    }
+
+    // 关键词筛选（搜索 prompt 和 uniqueId）
+    if (keyword) {
+      const keywordPattern = `%${keyword}%`
+      conditions.push(
+        or(
+          like(tasks.prompt, keywordPattern),
+          like(tasks.uniqueId, keywordPattern)
+        )!
+      )
+    }
+
+    const whereClause = and(...conditions)
+
+    // 查询总数
     const [countResult] = await db.select({ count: sql<number>`count(*)` })
       .from(tasks)
-      .where(and(eq(tasks.userId, userId), isNull(tasks.deletedAt)))
+      .where(whereClause)
     const total = countResult?.count ?? 0
 
-    // 查询分页数据（不包含已删除）
+    // 查询分页数据
     const taskList = await db.query.tasks.findMany({
-      where: and(eq(tasks.userId, userId), isNull(tasks.deletedAt)),
+      where: whereClause,
       orderBy: [desc(tasks.createdAt)],
       limit: pageSize,
       offset: (page - 1) * pageSize,

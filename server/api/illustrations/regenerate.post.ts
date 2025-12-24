@@ -1,4 +1,4 @@
-// POST /api/illustrations - 查询或创建插图任务（幂等接口）
+// POST /api/illustrations/regenerate - 重新生成插图（删除旧任务，创建新任务）
 import { useTaskService } from '../../services/task'
 import { useModelConfigService } from '../../services/modelConfig'
 import { useUserSettingsService } from '../../services/userSettings'
@@ -9,9 +9,6 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
   const { uniqueId, prompt, model, negative } = body
-  // 显式转换为布尔值，确保默认为 false
-  const autostart = body.autostart === true
-  const regenerate = body.regenerate === true
 
   // 验证必填参数
   if (!uniqueId?.trim()) {
@@ -30,28 +27,13 @@ export default defineEventHandler(async (event) => {
 
   const taskService = useTaskService()
 
-  // 1. 根据 uniqueId 查询是否已存在任务
+  // 1. 查找并删除旧任务
   const existingTask = await taskService.findByUniqueId(uniqueId.trim(), user.id)
-
   if (existingTask) {
-    // 任务已存在，返回当前状态
-    return formatTaskResponse(existingTask)
+    await taskService.deleteTask(existingTask.id, user.id)
   }
 
-  // 2. 任务不存在
-  // 如果 autostart=false，不创建任务，返回空状态让前端显示"生成"按钮
-  if (!autostart) {
-    return {
-      taskId: null,
-      status: 'idle',
-      progress: null,
-      imageUrl: null,
-      error: null,
-    }
-  }
-
-  // 3. autostart=true，创建并启动任务
-  // 根据 model 参数匹配用户的模型配置
+  // 2. 根据 model 参数匹配用户的模型配置
   const modelConfigService = useModelConfigService()
   const matchResult = await modelConfigService.findByModelName(user.id, model, 'image')
 
@@ -70,7 +52,7 @@ export default defineEventHandler(async (event) => {
   const userSettingsService = useUserSettingsService()
   const blurByDefault = await userSettingsService.get<boolean>(user.id, USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT)
 
-  // 4. 创建任务
+  // 3. 创建新任务
   const task = await taskService.createTask({
     userId: user.id,
     modelConfigId: config.id,
@@ -86,22 +68,16 @@ export default defineEventHandler(async (event) => {
     sourceType: 'chat',
   })
 
-  // 5. 提交任务（此时 autostart 一定为 true）
+  // 4. 提交任务
   taskService.submitTask(task.id).catch((err) => {
-    console.error('[Illustration] 提交任务失败:', err)
+    console.error('[Illustration] 重新生成任务失败:', err)
   })
 
-  return formatTaskResponse(task)
-})
-
-// 格式化任务响应
-function formatTaskResponse(task: any) {
   return {
     taskId: task.id,
     status: task.status,
     progress: task.progress,
     imageUrl: task.imageUrl,
     error: task.error,
-    isBlurred: task.isBlurred,
   }
-}
+})

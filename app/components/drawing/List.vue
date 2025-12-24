@@ -4,10 +4,36 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
-const { tasks, isLoading, currentPage, pageSize, total, executeAction, deleteTask, batchBlur, retryTask, cancelTask, loadTasks } = useTasks()
+const { tasks, isLoading, currentPage, pageSize, total, sourceType, keyword, executeAction, deleteTask, batchBlur, retryTask, cancelTask, loadTasks } = useTasks()
 
 // 批量操作loading状态
 const blurLoading = ref(false)
+
+// 来源筛选选项
+const sourceOptions = [
+  { label: '绘图工作台', value: 'workbench' },
+  { label: '对话插图', value: 'chat' },
+  { label: '全部', value: 'all' },
+]
+
+// 关键词搜索（防抖）
+const searchInput = ref(keyword.value)
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
+
+function handleSearchInput() {
+  if (searchTimeout) clearTimeout(searchTimeout)
+  searchTimeout = setTimeout(() => {
+    keyword.value = searchInput.value
+    currentPage.value = 1
+    loadTasks()
+  }, 300)
+}
+
+// 切换来源筛选
+function handleSourceChange() {
+  currentPage.value = 1
+  loadTasks()
+}
 
 // 计算总页数
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value))
@@ -129,6 +155,32 @@ function handlePageChange() {
         </NuxtLink>
         <span class="text-(--ui-text-dimmed) text-sm">共 {{ total }} 个任务</span>
       </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- 来源筛选 -->
+      <USelectMenu
+        v-model="sourceType"
+        :items="sourceOptions"
+        value-key="value"
+        class="w-32"
+        size="sm"
+        @update:model-value="handleSourceChange"
+      />
+      <!-- 关键词搜索 -->
+      <UInput
+        v-model="searchInput"
+        placeholder="搜索提示词..."
+        size="sm"
+        class="w-48"
+        :ui="{ leading: 'pl-2.5' }"
+        @input="handleSearchInput"
+      >
+        <template #leading>
+          <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4 text-(--ui-text-muted)" />
+        </template>
+      </UInput>
     </div>
 
     <!-- 加载状态 -->

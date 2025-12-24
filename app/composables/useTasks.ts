@@ -58,7 +58,11 @@ export function useTasks() {
   const pageSize = useState('tasks-pageSize', () => 20)
   const total = useState('tasks-total', () => 0)
 
-  // 加载任务列表（支持分页）
+  // 筛选状态
+  const sourceType = useState<'workbench' | 'chat' | 'all'>('tasks-sourceType', () => 'workbench')
+  const keyword = useState('tasks-keyword', () => '')
+
+  // 加载任务列表（支持分页和筛选）
   async function loadTasks(page?: number) {
     isLoading.value = true
     if (page !== undefined) {
@@ -70,6 +74,8 @@ export function useTasks() {
         query: {
           page: currentPage.value,
           pageSize: pageSize.value,
+          sourceType: sourceType.value,
+          keyword: keyword.value || undefined,
         },
       })
       tasks.value = result.tasks
@@ -252,6 +258,8 @@ export function useTasks() {
     currentPage,
     pageSize,
     total,
+    sourceType,
+    keyword,
     loadTasks,
     addTask,
     executeAction,

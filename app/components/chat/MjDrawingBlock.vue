@@ -17,6 +17,7 @@ const imageUrl = ref<string | null>(null)
 const taskId = ref<number | null>(null)
 const error = ref<string | null>(null)
 const createdAt = ref<Date | null>(null)
+const isBlurred = ref(true)
 
 // 轮询定时器
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -117,6 +118,9 @@ function updateFromResponse(res: any, wasStarted = true) {
   progress.value = res.progress
   imageUrl.value = res.imageUrl
   error.value = res.error
+  if (res.isBlurred !== undefined) {
+    isBlurred.value = res.isBlurred
+  }
 
   if (res.status === 'success') {
     status.value = 'success'
@@ -177,6 +181,59 @@ function downloadImage() {
   a.click()
 }
 
+// 切换模糊状态并同步到后端
+async function toggleBlur() {
+  const newBlurred = !isBlurred.value
+  isBlurred.value = newBlurred
+  try {
+    await $fetch('/api/illustrations/blur', {
+      method: 'PATCH',
+      body: {
+        uniqueId: props.params.uniqueId,
+        isBlurred: newBlurred,
+      },
+    })
+  } catch (err) {
+    console.error('保存模糊状态失败:', err)
+  }
+}
+
+// 重新生成（删除旧任务，创建新任务）
+async function regenerate() {
+  if (!props.params.uniqueId || !props.params.prompt) {
+    error.value = '缺少必要参数'
+    status.value = 'failed'
+    return
+  }
+
+  status.value = 'pending'
+  error.value = null
+  imageUrl.value = null
+  createdAt.value = new Date()
+
+  try {
+    const res = await $fetch('/api/illustrations/regenerate', {
+      method: 'POST',
+      body: {
+        uniqueId: props.params.uniqueId,
+        prompt: props.params.prompt,
+        model: props.params.model,
+        negative: props.params.negative,
+      },
+    })
+
+    taskId.value = res.taskId
+    updateFromResponse(res, true)
+
+    if (status.value === 'submitting' || status.value === 'processing' || status.value === 'pending') {
+      startPolling()
+    }
+  } catch (e: any) {
+    error.value = e.data?.message || e.message || '重新生成失败'
+    status.value = 'failed'
+  }
+}
+
 // 组件挂载时自动请求（传递 autostart 参数）
 onMounted(() => {
   fetchOrCreateTask(props.params.autostart ?? false)
@@ -198,16 +255,17 @@ onUnmounted(() => {
         v-if="status === 'success' && imageUrl"
         :src="imageUrl"
         :alt="params.prompt"
-        class="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
-        @click="showPreview = true"
+        class="w-full h-full object-contain cursor-pointer transition-all duration-300"
+        :class="isBlurred ? 'blur-xl scale-105' : 'hover:opacity-90'"
+        @click="toggleBlur"
       />
 
       <!-- 非成功状态显示状态信息 -->
       <div
         v-else
-        class="w-full h-full flex items-center justify-center p-4"
+        class="w-full h-full flex flex-col items-center justify-center p-4"
       >
-        <div class="text-center">
+        <div class="text-center flex-shrink-0">
           <!-- 竖线加载动画 -->
           <DrawingLoader
             v-if="statusInfo.showBars"
@@ -238,6 +296,16 @@ onUnmounted(() => {
             重试
           </UButton>
         </div>
+
+        <!-- 空闲/失败状态显示 uniqueId 和提示词 -->
+        <div v-if="status === 'idle' || status === 'failed'" class="mt-3 w-full max-w-full overflow-hidden">
+          <p class="text-xs text-(--ui-text-dimmed) truncate text-center" :title="params.uniqueId">
+            {{ params.uniqueId }}
+          </p>
+          <p class="text-xs text-(--ui-text-muted) line-clamp-2 text-center mt-1" :title="params.prompt">
+            {{ params.prompt }}
+          </p>
+        </div>
       </div>
 
       <!-- 左上角按钮组（成功时显示） -->
@@ -257,6 +325,14 @@ onUnmounted(() => {
           @click="showPreview = true"
         >
           <UIcon name="i-heroicons-magnifying-glass-plus" class="w-4 h-4 text-white" />
+        </button>
+        <!-- 重新生成按钮 -->
+        <button
+          class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
+          title="重新生成"
+          @click="regenerate"
+        >
+          <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 text-white" />
         </button>
       </div>
 
