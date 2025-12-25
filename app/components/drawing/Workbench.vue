@@ -8,6 +8,7 @@ import {
   MODELS_WITH_NEGATIVE_PROMPT,
   MAX_REFERENCE_IMAGE_SIZE_BYTES,
   MAX_REFERENCE_IMAGE_COUNT,
+  USER_SETTING_KEYS,
 } from '../../shared/constants'
 
 const props = defineProps<{
@@ -19,12 +20,67 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { getAuthHeader } = useAuth()
+const { settings, isLoaded: settingsLoaded, loadSettings } = useUserSettings()
+
 const prompt = ref('')
 const negativePrompt = ref('')
 const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
 const selectedConfigId = ref<number | null>(null)
 const selectedModelName = ref<string | null>(null)
+
+// AI 优化状态
+const isOptimizing = ref(false)
+
+// 加载用户设置
+onMounted(async () => {
+  if (!settingsLoaded.value) {
+    await loadSettings()
+  }
+})
+
+// AI 优化配置是否已设置
+const hasAiOptimizeConfig = computed(() => {
+  const configId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_CONFIG_ID]
+  const modelName = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME]
+  return configId && modelName
+})
+
+// AI 优化提示词
+async function handleOptimize() {
+  if (!prompt.value.trim()) {
+    toast.add({ title: '请先输入提示词', color: 'warning' })
+    return
+  }
+
+  if (!hasAiOptimizeConfig.value) {
+    toast.add({ title: '请先在设置中配置 AI 优化模型', color: 'warning' })
+    return
+  }
+
+  isOptimizing.value = true
+  try {
+    const result = await $fetch<{ success: boolean; optimizedPrompt: string }>('/api/prompts/optimize', {
+      method: 'POST',
+      headers: getAuthHeader(),
+      body: {
+        prompt: prompt.value,
+        configId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_CONFIG_ID],
+        modelName: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME],
+      },
+    })
+
+    if (result.success && result.optimizedPrompt) {
+      prompt.value = result.optimizedPrompt
+      toast.add({ title: '提示词已优化', color: 'success' })
+    }
+  } catch (error: any) {
+    toast.add({ title: '优化失败', description: error.data?.message || error.message, color: 'error' })
+  } finally {
+    isOptimizing.value = false
+  }
+}
 
 // 模型选择器引用
 const modelSelectorRef = ref<{
@@ -265,6 +321,21 @@ defineExpose({
 
     <!-- 提示词输入 -->
     <UFormField label="描述你想要的图片" class="mb-4">
+      <template #label>
+        <span class="inline-flex items-center gap-2">
+          描述你想要的图片
+          <UButton
+            size="xs"
+            variant="soft"
+            :loading="isOptimizing"
+            :disabled="!prompt.trim() || !hasAiOptimizeConfig"
+            @click="handleOptimize"
+          >
+            <UIcon name="i-heroicons-sparkles" class="w-3.5 h-3.5 mr-1" />
+            AI 优化
+          </UButton>
+        </span>
+      </template>
       <UTextarea
         v-model="prompt"
         placeholder="例如：一只可爱的小猫咪坐在花园里，油画风格，高清，细节丰富"

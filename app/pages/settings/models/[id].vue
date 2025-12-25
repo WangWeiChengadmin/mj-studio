@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConfig, ChatModelType } from '../../../shared/types'
+import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConfig, ChatModelType, ApiKeyConfig, BalanceApiType } from '../../../shared/types'
 import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
 import {
   IMAGE_MODEL_TYPES,
@@ -32,10 +32,13 @@ const pageTitle = computed(() => isNew.value ? '添加配置' : '编辑配置')
 const form = reactive({
   name: '',
   baseUrl: '',
-  apiKey: '',
+  apiKey: '', // 保留用于兼容，实际使用 apiKeys
   remark: '',
   isDefault: false,
 })
+
+// 多 Key 配置
+const apiKeys = ref<ApiKeyConfig[]>([{ name: 'default', key: '', balanceApiType: undefined }])
 
 // 绘图模型配置
 const imageModelConfigs = ref<ModelTypeConfig[]>([])
@@ -71,8 +74,10 @@ function validate(state: typeof form): FormError[] {
   if (!state.baseUrl?.trim()) {
     errors.push({ name: 'baseUrl', message: '请输入API地址' })
   }
-  if (!state.apiKey?.trim()) {
-    errors.push({ name: 'apiKey', message: '请输入API密钥' })
+  // 验证至少有一个有效的 Key
+  const hasValidKey = apiKeys.value.some(k => k.key?.trim())
+  if (!hasValidKey) {
+    errors.push({ name: 'apiKey', message: '请至少添加一个API密钥' })
   }
   return errors
 }
@@ -92,6 +97,14 @@ async function loadConfigData() {
         isDefault: config.isDefault,
       })
 
+      // 加载 apiKeys
+      if (config.apiKeys && config.apiKeys.length > 0) {
+        apiKeys.value = config.apiKeys
+      } else {
+        // 兼容旧数据
+        apiKeys.value = [{ name: 'default', key: config.apiKey }]
+      }
+
       // 分离绘图模型和对话模型
       if (config.modelTypeConfigs) {
         imageModelConfigs.value = config.modelTypeConfigs.filter(
@@ -108,6 +121,7 @@ async function loadConfigData() {
   } else {
     // 新建时设置默认值
     form.isDefault = configs.value.length === 0
+    apiKeys.value = [{ name: 'default', key: '' }]
   }
 }
 
@@ -197,8 +211,45 @@ function onChatModelNameChange(index: number) {
   }
 }
 
+// ==================== Key 管理 ====================
+
+// 添加新 Key
+function addApiKey() {
+  const newName = `key-${apiKeys.value.length}`
+  apiKeys.value.push({ name: newName, key: '' })
+}
+
+// 移除 Key
+function removeApiKey(index: number) {
+  if (apiKeys.value.length <= 1) {
+    toast.add({ title: '至少保留一个 Key', color: 'warning' })
+    return
+  }
+  apiKeys.value.splice(index, 1)
+}
+
+// 余额查询 API 类型选项
+const balanceApiOptions = [
+  { label: '不查询', value: undefined },
+  { label: 'OneAPI/NewAPI', value: 'oneapi' },
+  { label: 'n1n', value: 'n1n' },
+  { label: '云雾（暂不支持）', value: 'yunwu' },
+]
+
+// 获取可用的 Key 名称列表（用于模型配置选择）
+const availableKeyNames = computed(() => {
+  return apiKeys.value.map(k => ({ label: k.name, value: k.name }))
+})
+
 // 提交表单
 async function onSubmit(event: FormSubmitEvent<typeof form>) {
+  // 过滤有效的 apiKeys
+  const validApiKeys = apiKeys.value.filter(k => k.key?.trim())
+  if (validApiKeys.length === 0) {
+    toast.add({ title: '请至少添加一个有效的 API 密钥', color: 'error' })
+    return
+  }
+
   // 合并模型配置
   const allModelConfigs = [
     ...imageModelConfigs.value.map(c => ({ ...c, category: 'image' as ModelCategory })),
@@ -210,12 +261,16 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
     return
   }
 
+  // 使用第一个 Key 作为主 apiKey（兼容旧逻辑）
+  const primaryApiKey = validApiKeys[0].key
+
   try {
     if (isNew.value) {
       await createConfig({
         name: form.name,
         baseUrl: form.baseUrl,
-        apiKey: form.apiKey,
+        apiKey: primaryApiKey,
+        apiKeys: validApiKeys,
         modelTypeConfigs: allModelConfigs,
         remark: form.remark,
         isDefault: form.isDefault,
@@ -225,7 +280,8 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       await updateConfig(configId.value!, {
         name: form.name,
         baseUrl: form.baseUrl,
-        apiKey: form.apiKey,
+        apiKey: primaryApiKey,
+        apiKeys: validApiKeys,
         modelTypeConfigs: allModelConfigs,
         remark: form.remark || null,
         isDefault: form.isDefault,
@@ -284,15 +340,50 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
             />
           </UFormField>
 
-          <UFormField label="API密钥" name="apiKey" required>
-            <UInput
-              v-model="form.apiKey"
-              type="password"
-              placeholder="sk-xxx..."
-              class="w-full"
-              autocomplete="new-password"
-            />
-          </UFormField>
+          <!-- API 密钥管理 -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-sm font-medium text-(--ui-text)">API 密钥 <span class="text-red-500">*</span></label>
+              <UButton size="xs" variant="ghost" icon="i-heroicons-plus" @click="addApiKey">添加 Key</UButton>
+            </div>
+
+            <div v-for="(keyConfig, index) in apiKeys" :key="index" class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) space-y-2">
+              <div class="flex items-center gap-2">
+                <UInput
+                  v-model="keyConfig.name"
+                  placeholder="Key 名称"
+                  class="w-32"
+                  size="sm"
+                />
+                <UInput
+                  v-model="keyConfig.key"
+                  type="password"
+                  placeholder="sk-xxx..."
+                  class="flex-1"
+                  size="sm"
+                  autocomplete="new-password"
+                />
+                <UButton
+                  v-if="apiKeys.length > 1"
+                  size="xs"
+                  variant="ghost"
+                  color="error"
+                  icon="i-heroicons-trash"
+                  @click="removeApiKey(index)"
+                />
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-(--ui-text-muted)">余额查询：</span>
+                <USelect
+                  v-model="keyConfig.balanceApiType"
+                  :items="balanceApiOptions"
+                  size="xs"
+                  class="w-40"
+                  placeholder="选择类型"
+                />
+              </div>
+            </div>
+          </div>
 
           <UFormField label="备注" name="remark">
             <UTextarea
@@ -388,6 +479,16 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                           class="w-24"
                         />
                       </UFormField>
+
+                      <UFormField v-if="apiKeys.length > 1" label="使用 Key">
+                        <USelectMenu
+                          v-model="mtc.keyName"
+                          :items="availableKeyNames"
+                          value-key="value"
+                          placeholder="default"
+                          class="w-32"
+                        />
+                      </UFormField>
                     </div>
                   </div>
 
@@ -462,6 +563,16 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                           placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
                           class="w-80"
                           @input="onChatModelNameChange(index)"
+                        />
+                      </UFormField>
+
+                      <UFormField v-if="apiKeys.length > 1" label="使用 Key">
+                        <USelectMenu
+                          v-model="mtc.keyName"
+                          :items="availableKeyNames"
+                          value-key="value"
+                          placeholder="default"
+                          class="w-32"
                         />
                       </UFormField>
                     </div>

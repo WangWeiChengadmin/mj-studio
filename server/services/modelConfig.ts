@@ -1,6 +1,6 @@
 // 模型配置服务层
 import { db } from '../database'
-import { modelConfigs, type ModelConfig, type NewModelConfig, type ModelTypeConfig } from '../database/schema'
+import { modelConfigs, type ModelConfig, type NewModelConfig, type ModelTypeConfig, type ApiKeyConfig } from '../database/schema'
 import { eq, and } from 'drizzle-orm'
 
 export function useModelConfigService() {
@@ -31,6 +31,7 @@ export function useModelConfigService() {
     name: string
     baseUrl: string
     apiKey: string
+    apiKeys?: ApiKeyConfig[]
     modelTypeConfigs: ModelTypeConfig[]
     remark?: string
     isDefault?: boolean
@@ -42,11 +43,15 @@ export function useModelConfigService() {
         .where(eq(modelConfigs.userId, data.userId))
     }
 
+    // 如果没有提供 apiKeys，从 apiKey 创建默认的
+    const apiKeys = data.apiKeys || [{ name: 'default', key: data.apiKey }]
+
     const [config] = await db.insert(modelConfigs).values({
       userId: data.userId,
       name: data.name,
       baseUrl: data.baseUrl,
       apiKey: data.apiKey,
+      apiKeys,
       modelTypeConfigs: data.modelTypeConfigs,
       remark: data.remark ?? null,
       isDefault: data.isDefault ?? false,
@@ -60,6 +65,7 @@ export function useModelConfigService() {
     name: string
     baseUrl: string
     apiKey: string
+    apiKeys: ApiKeyConfig[]
     modelTypeConfigs: ModelTypeConfig[]
     remark: string | null
     isDefault: boolean
@@ -162,6 +168,27 @@ export function useModelConfigService() {
       .where(eq(modelConfigs.id, configId))
   }
 
+  /**
+   * 获取指定配置的 API Key
+   * @param config 模型配置
+   * @param keyName Key 名称，默认 "default"
+   * @returns API Key 字符串
+   */
+  function getApiKey(config: ModelConfig, keyName?: string): string {
+    const targetName = keyName || 'default'
+
+    // 优先从 apiKeys 数组获取
+    if (config.apiKeys && config.apiKeys.length > 0) {
+      const found = config.apiKeys.find(k => k.name === targetName)
+      if (found) return found.key
+      // 如果找不到指定的 key，返回第一个
+      return config.apiKeys[0].key
+    }
+
+    // 兼容旧数据：使用 apiKey 字段
+    return config.apiKey
+  }
+
   return {
     listByUser,
     getById,
@@ -171,5 +198,6 @@ export function useModelConfigService() {
     remove,
     findByModelName,
     updateEstimatedTime,
+    getApiKey,
   }
 }

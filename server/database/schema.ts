@@ -14,9 +14,10 @@ export type {
   MessageStatus,
   MessageFile,
   ModelTypeConfig,
+  ApiKeyConfig,
 } from '../../app/shared/types'
 
-import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile } from '../../app/shared/types'
+import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -37,7 +38,8 @@ export const modelConfigs = sqliteTable('model_configs', {
   userId: integer('user_id').notNull(),
   name: text('name').notNull(), // 上游名称，用户自定义，如 "我的MJ", "公司API"
   baseUrl: text('base_url').notNull(), // API请求前缀
-  apiKey: text('api_key').notNull(), // API密钥
+  apiKey: text('api_key').notNull(), // API密钥（保留兼容旧数据）
+  apiKeys: text('api_keys', { mode: 'json' }).$type<ApiKeyConfig[]>(), // 多Key配置
   modelTypeConfigs: text('model_type_configs', { mode: 'json' }).$type<ModelTypeConfig[]>().notNull(), // 模型类型配置数组
   remark: text('remark'), // 备注说明
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // 是否默认

@@ -1,6 +1,7 @@
 // 对话服务层（流式响应）
 import type { ModelConfig, Message, MessageFile } from '../database/schema'
 import { readFileAsBase64, isImageMimeType } from './file'
+import { useModelConfigService } from './modelConfig'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 
@@ -68,9 +69,12 @@ function buildMessageContent(text: string, files?: MessageFile[] | null): string
 }
 
 // 创建对话服务实例
-export function createChatService(config: ModelConfig) {
+export function createChatService(config: ModelConfig, keyName?: string) {
+  const modelConfigService = useModelConfigService()
+  const apiKey = modelConfigService.getApiKey(config, keyName)
+
   const headers = {
-    'Authorization': `Bearer ${config.apiKey}`,
+    'Authorization': `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   }
 

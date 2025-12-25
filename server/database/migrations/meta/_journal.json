@@ -22,6 +22,13 @@
       "when": 1766544986805,
       "tag": "0002_fuzzy_iron_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1766669755271,
+      "tag": "0003_careful_grandmaster",
+      "breakpoints": true
     }
   ]
 }

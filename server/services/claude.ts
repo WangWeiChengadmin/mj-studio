@@ -1,6 +1,7 @@
 // Claude API 对话服务层（流式响应）
 import type { ModelConfig, Message, MessageFile } from '../database/schema'
 import { readFileAsBase64, isImageMimeType } from './file'
+import { useModelConfigService } from './modelConfig'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 
@@ -70,17 +71,20 @@ function buildClaudeMessageContent(text: string, files?: MessageFile[] | null): 
 }
 
 // 创建 Claude 对话服务实例
-export function createClaudeChatService(config: ModelConfig) {
+export function createClaudeChatService(config: ModelConfig, keyName?: string) {
+  const modelConfigService = useModelConfigService()
+  const apiKey = modelConfigService.getApiKey(config, keyName)
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'anthropic-version': '2023-06-01',
   }
 
   // 支持两种认证方式：x-api-key 或 Bearer token
-  if (config.apiKey.startsWith('sk-ant-')) {
-    headers['x-api-key'] = config.apiKey
+  if (apiKey.startsWith('sk-ant-')) {
+    headers['x-api-key'] = apiKey
   } else {
-    headers['Authorization'] = `Bearer ${config.apiKey}`
+    headers['Authorization'] = `Bearer ${apiKey}`
   }
 
   // 构建消息列表（不包含 system，Claude 的 system 是独立字段）

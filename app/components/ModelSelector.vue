@@ -15,6 +15,10 @@ const props = defineProps<{
   dropdownWidth?: string
   // 使用列表布局而非 grid 布局
   listLayout?: boolean
+  // 禁用自动选择默认配置
+  noAutoSelect?: boolean
+  // 下拉框右对齐（向左展开）
+  alignRight?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -173,6 +177,7 @@ function handleSelectModel(configId: number, modelName: string) {
 
 // 当配置列表变化时，选择默认配置
 watch(() => props.modelConfigs, (configs) => {
+  if (props.noAutoSelect) return
   if (configs.length > 0 && !selectedConfigId.value) {
     const defaultConfig = configs.find(c => c.isDefault) || configs[0]
     const filteredModels = filterModelsByCategory(defaultConfig.modelTypeConfigs || [])
@@ -247,7 +252,7 @@ defineExpose({
       <div
         v-if="isOpen && hasModels"
         class="absolute z-50 max-h-80 overflow-y-auto rounded-lg border border-(--ui-border-accented) bg-(--ui-bg-elevated) shadow-lg"
-        :class="[dropUp ? 'bottom-full mb-1' : 'top-full mt-1', dropdownWidth || 'w-80']"
+        :class="[dropUp ? 'bottom-full mb-1' : 'top-full mt-1', dropdownWidth || 'w-80', alignRight ? 'right-0' : 'left-0']"
       >
         <!-- 按上游分组 -->
         <div v-for="(group, index) in groupedModels" :key="group.configId">

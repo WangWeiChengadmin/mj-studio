@@ -1,0 +1,1 @@
+ALTER TABLE `model_configs` ADD `api_keys` text;

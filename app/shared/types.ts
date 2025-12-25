@@ -139,6 +139,30 @@ export interface MessageFile {
   size: number
 }
 
+// ==================== API Key 配置 ====================
+
+/**
+ * 余额查询 API 类型
+ * - oneapi: OneAPI/NewAPI 格式，GET /api/user/self
+ * - n1n: n1n 格式，GET /api/user/self
+ * - yunwu: 云雾格式，暂不支持 API 查询
+ */
+export type BalanceApiType = 'oneapi' | 'n1n' | 'yunwu'
+
+/**
+ * API Key 配置
+ * - 用于存储上游的多个 API Key
+ * - 使用场景：模型配置中的多 Key 管理、余额查询
+ */
+export interface ApiKeyConfig {
+  /** Key 名称，如 "default", "premium", "backup" */
+  name: string
+  /** API Key 值 */
+  key: string
+  /** 余额查询 API 类型（可选） */
+  balanceApiType?: BalanceApiType
+}
+
 // ==================== 模型类型配置接口 ====================
 
 /**
@@ -157,4 +181,6 @@ export interface ModelTypeConfig {
   modelName: string
   /** 预计时间（秒）：绘图模型为预计生成时间，对话模型为预计首字时长 */
   estimatedTime?: number
+  /** 使用的 Key 名称，默认 "default" */
+  keyName?: string
 }

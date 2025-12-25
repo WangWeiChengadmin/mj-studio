@@ -1,4 +1,5 @@
 // 模型配置管理
+import type { ApiKeyConfig, ModelTypeConfig as SharedModelTypeConfig } from '../shared/types'
 
 type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
 type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
@@ -9,6 +10,7 @@ export interface ModelTypeConfig {
   apiFormat: ApiFormat
   modelName: string
   estimatedTime: number
+  keyName?: string
 }
 
 // 完整的模型配置类型（设置页使用）
@@ -18,6 +20,7 @@ export interface ModelConfig {
   name: string
   baseUrl: string
   apiKey: string
+  apiKeys?: ApiKeyConfig[]
   modelTypeConfigs: ModelTypeConfig[]
   remark: string | null
   isDefault: boolean
@@ -46,6 +49,7 @@ export function useModelConfigs() {
     name: string
     baseUrl: string
     apiKey: string
+    apiKeys?: ApiKeyConfig[]
     modelTypeConfigs: ModelTypeConfig[]
     remark?: string
     isDefault?: boolean
@@ -63,6 +67,7 @@ export function useModelConfigs() {
     name: string
     baseUrl: string
     apiKey: string
+    apiKeys: ApiKeyConfig[]
     modelTypeConfigs: ModelTypeConfig[]
     remark: string | null
     isDefault: boolean

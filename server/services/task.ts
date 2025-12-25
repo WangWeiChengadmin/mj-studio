@@ -7,6 +7,7 @@ import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
 import { createKoukoutuService } from './koukoutu'
+import { useModelConfigService } from './modelConfig'
 import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
 import { logResponse } from './logger'
@@ -27,6 +28,15 @@ function isAbortError(error: any): boolean {
 }
 
 export function useTaskService() {
+  const modelConfigService = useModelConfigService()
+
+  // 获取配置的 API Key（支持多 Key）
+  function getApiKey(config: ModelConfig, task?: Task): string {
+    // 从任务的 modelTypeConfig 获取 keyName
+    const mtc = config.modelTypeConfigs?.find(m => m.modelName === task?.modelName)
+    return modelConfigService.getApiKey(config, mtc?.keyName)
+  }
+
   // 将本地 URL 数组转换为 Base64 数组
   function convertImagesToBase64(images: string[]): string[] {
     return images.map(url => {
@@ -388,7 +398,7 @@ export function useTaskService() {
 
   // 提交到Gemini（同步API）
   async function submitToGemini(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
-    const gemini = createGeminiService(config.baseUrl, config.apiKey)
+    const gemini = createGeminiService(config.baseUrl, getApiKey(config, task))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES.gemini
 
     try {
@@ -414,7 +424,7 @@ export function useTaskService() {
 
   // 提交到DALL-E（同步API）
   async function submitToDalle(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
-    const dalle = createDalleService(config.baseUrl, config.apiKey)
+    const dalle = createDalleService(config.baseUrl, getApiKey(config, task))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES.dalle
 
     try {
@@ -440,7 +450,7 @@ export function useTaskService() {
 
   // 提交到OpenAI Chat（同步API）
   async function submitToOpenAIChat(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
-    const openai = createOpenAIChatService(config.baseUrl, config.apiKey)
+    const openai = createOpenAIChatService(config.baseUrl, getApiKey(config, task))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES['gpt4o-image']
 
     try {
@@ -475,7 +485,7 @@ export function useTaskService() {
       return
     }
 
-    const koukoutu = createKoukoutuService(config.baseUrl, config.apiKey)
+    const koukoutu = createKoukoutuService(config.baseUrl, getApiKey(config, task))
     const modelKey = task.modelName || 'background-removal'
 
     try {
@@ -505,7 +515,7 @@ export function useTaskService() {
 
   // 提交到MJ API（异步执行）
   async function submitToMJ(task: Task, config: ModelConfig): Promise<void> {
-    const mj = createMJService(config.baseUrl, config.apiKey)
+    const mj = createMJService(config.baseUrl, getApiKey(config, task))
 
     try {
       let result
@@ -560,7 +570,7 @@ export function useTaskService() {
       return task
     }
 
-    const koukoutu = createKoukoutuService(config.baseUrl, config.apiKey)
+    const koukoutu = createKoukoutuService(config.baseUrl, getApiKey(config, task))
 
     try {
       const result = await koukoutu.query(task.upstreamTaskId)
@@ -602,7 +612,7 @@ export function useTaskService() {
       return task
     }
 
-    const mj = createMJService(config.baseUrl, config.apiKey)
+    const mj = createMJService(config.baseUrl, getApiKey(config, task))
 
     try {
       const mjTask = await mj.fetchTask(task.upstreamTaskId)
@@ -717,7 +727,7 @@ export function useTaskService() {
       status: 'submitting',
     }).returning()
 
-    const mj = createMJService(config.baseUrl, config.apiKey)
+    const mj = createMJService(config.baseUrl, getApiKey(config, task))
 
     try {
       const result = await mj.action(parentTask.upstreamTaskId, customId, newTask.id)

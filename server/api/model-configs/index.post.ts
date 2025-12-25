@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
   const body = await readBody(event)
 
-  const { name, baseUrl, apiKey, modelTypeConfigs, remark, isDefault } = body
+  const { name, baseUrl, apiKey, apiKeys, modelTypeConfigs, remark, isDefault } = body
 
   // 验证必填字段
   if (!name?.trim()) {
@@ -45,6 +45,7 @@ export default defineEventHandler(async (event) => {
     name: name.trim(),
     baseUrl: baseUrl.trim(),
     apiKey: apiKey.trim(),
+    apiKeys,
     modelTypeConfigs,
     remark: remark?.trim() || undefined,
     isDefault: isDefault ?? false,

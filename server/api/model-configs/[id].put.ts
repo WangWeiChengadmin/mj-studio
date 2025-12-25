@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
-  const { name, baseUrl, apiKey, modelTypeConfigs, remark, isDefault } = body
+  const { name, baseUrl, apiKey, apiKeys, modelTypeConfigs, remark, isDefault } = body
 
   // 构建更新数据
   const updateData: Record<string, any> = {}
@@ -58,6 +58,10 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'API密钥不能为空' })
     }
     updateData.apiKey = apiKey.trim()
+  }
+
+  if (apiKeys !== undefined) {
+    updateData.apiKeys = apiKeys
   }
 
   if (remark !== undefined) {

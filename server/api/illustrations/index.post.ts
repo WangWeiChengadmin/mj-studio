@@ -51,23 +51,52 @@ export default defineEventHandler(async (event) => {
   }
 
   // 3. autostart=true，创建并启动任务
-  // 根据 model 参数匹配用户的模型配置
   const modelConfigService = useModelConfigService()
-  const matchResult = await modelConfigService.findByModelName(user.id, model, 'image')
+  const userSettingsService = useUserSettingsService()
 
-  if (!matchResult) {
-    throw createError({
-      statusCode: 400,
-      message: model
-        ? `未找到匹配的绘图模型配置: ${model}`
-        : '未找到可用的绘图模型配置，请先在设置中添加',
-    })
+  let config: any
+  let modelTypeConfig: any
+
+  // 优先使用用户设置的默认嵌入式绘画配置
+  const defaultConfigId = await userSettingsService.get<number>(
+    user.id,
+    USER_SETTING_KEYS.DRAWING_EMBEDDED_CONFIG_ID
+  )
+  const defaultModelType = await userSettingsService.get<string>(
+    user.id,
+    USER_SETTING_KEYS.DRAWING_EMBEDDED_MODEL_TYPE
+  )
+
+  if (defaultConfigId && defaultModelType) {
+    // 使用用户设置的默认配置
+    const defaultConfig = await modelConfigService.getById(defaultConfigId)
+    if (defaultConfig) {
+      const mtc = defaultConfig.modelTypeConfigs?.find(
+        (m: any) => m.modelType === defaultModelType
+      )
+      if (mtc) {
+        config = defaultConfig
+        modelTypeConfig = mtc
+      }
+    }
   }
 
-  const { config, modelTypeConfig } = matchResult
+  // 如果没有默认配置或默认配置无效，则根据 model 参数匹配
+  if (!config || !modelTypeConfig) {
+    const matchResult = await modelConfigService.findByModelName(user.id, model, 'image')
+    if (!matchResult) {
+      throw createError({
+        statusCode: 400,
+        message: model
+          ? `未找到匹配的绘图模型配置: ${model}`
+          : '未找到可用的绘图模型配置，请先在设置中添加',
+      })
+    }
+    config = matchResult.config
+    modelTypeConfig = matchResult.modelTypeConfig
+  }
 
   // 获取用户的 blurByDefault 设置
-  const userSettingsService = useUserSettingsService()
   const blurByDefault = await userSettingsService.get<boolean>(user.id, USER_SETTING_KEYS.GENERAL_BLUR_BY_DEFAULT)
 
   // 4. 创建任务
