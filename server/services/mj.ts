@@ -110,11 +110,13 @@ export function createMJService(baseUrl: string, apiKey: string) {
         body,
       })
 
+      const result = typeof response === 'string' ? JSON.parse(response) : response
+
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logResponse(taskId, { status: 200, data: result })
       }
 
-      return response
+      return result
     } catch (error: any) {
       if (taskId) {
         logResponse(taskId, {
@@ -144,11 +146,13 @@ export function createMJService(baseUrl: string, apiKey: string) {
         body,
       })
 
+      const result = typeof response === 'string' ? JSON.parse(response) : response
+
       if (taskId) {
-        logResponse(taskId, { status: 200, data: response })
+        logResponse(taskId, { status: 200, data: result })
       }
 
-      return response
+      return result
     } catch (error: any) {
       if (taskId) {
         logResponse(taskId, {

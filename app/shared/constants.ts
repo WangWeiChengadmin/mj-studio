@@ -151,7 +151,7 @@ export const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
  */
 export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   // 绘图模型
-  'midjourney': '',  // MJ 不需要指定模型名
+  'midjourney': 'midjourney',  // MJ 实际不需要模型名，但需要一个默认值用于显示和判断
   'gemini': 'gemini-2.5-flash-image',
   'flux': 'flux-dev',
   'dalle': 'dall-e-3',

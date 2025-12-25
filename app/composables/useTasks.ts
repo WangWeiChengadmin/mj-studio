@@ -115,7 +115,7 @@ export function useTasks() {
     }
   }
 
-  // 开始轮询任务状态
+  // 开始轮询任务状态（使用 setTimeout 递归，避免请求堆积）
   function startPolling(taskId: number) {
     if (pollingIntervals.has(taskId)) return
 
@@ -135,24 +135,26 @@ export function useTasks() {
         // 终态停止轮询
         if (['success', 'failed'].includes(result.status)) {
           stopPolling(taskId)
+          return
         }
       } catch (error) {
         console.error('轮询任务失败:', error)
       }
+
+      // 请求完成后，等待 3 秒再发起下一次
+      const timeout = setTimeout(poll, 3000)
+      pollingIntervals.set(taskId, timeout)
     }
 
-    // 立即执行一次
+    // 立即执行第一次
     poll()
-    // 每 3 秒轮询一次
-    const interval = setInterval(poll, 3000)
-    pollingIntervals.set(taskId, interval)
   }
 
   // 停止轮询
   function stopPolling(taskId: number) {
-    const interval = pollingIntervals.get(taskId)
-    if (interval) {
-      clearInterval(interval)
+    const timeout = pollingIntervals.get(taskId)
+    if (timeout) {
+      clearTimeout(timeout)
       pollingIntervals.delete(taskId)
     }
   }

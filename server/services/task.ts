@@ -635,7 +635,7 @@ export function useTaskService() {
       if (mjTask.failReason) {
         error = classifyError({ message: mjTask.failReason })
         // 任务失败时，记录轮询响应到日志（覆盖提交成功的日志）
-        logResponse(taskId, {
+        logResponse(task.id, {
           status: 200,
           statusText: 'OK (Poll)',
           data: {
@@ -646,7 +646,7 @@ export function useTaskService() {
         })
       }
 
-      return await updateTask(taskId, {
+      return await updateTask(task.id, {
         status,
         progress: mjTask.progress || null,
         imageUrl,
