@@ -59,12 +59,15 @@ const currentModelHint = computed(() => {
 // 模型信息模态框状态
 const showModelInfoModal = ref(false)
 
+// 上传中状态
+const isUploading = ref(false)
+
 // 处理图片上传
 async function handleFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   if (!input.files?.length) return
 
-  const files = Array.from(input.files).slice(0, MAX_REFERENCE_IMAGE_COUNT)
+  const files = Array.from(input.files).slice(0, MAX_REFERENCE_IMAGE_COUNT - referenceImages.value.length)
 
   for (const file of files) {
     if (file.size > MAX_REFERENCE_IMAGE_SIZE_BYTES) {
@@ -72,14 +75,25 @@ async function handleFileChange(event: Event) {
       continue
     }
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const base64 = e.target?.result as string
-      if (referenceImages.value.length < MAX_REFERENCE_IMAGE_COUNT) {
-        referenceImages.value.push(base64)
+    // 上传到服务器
+    isUploading.value = true
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const result = await $fetch<{ success: boolean; url: string }>('/api/images/upload', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (result.success && referenceImages.value.length < MAX_REFERENCE_IMAGE_COUNT) {
+        referenceImages.value.push(result.url)
       }
+    } catch (error: any) {
+      toast.add({ title: '图片上传失败', description: error.message, color: 'error' })
+    } finally {
+      isUploading.value = false
     }
-    reader.readAsDataURL(file)
   }
 
   input.value = ''

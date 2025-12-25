@@ -25,6 +25,7 @@ export const IMAGE_MODEL_TYPES: ImageModelType[] = [
   'grok-image',
   'qwen-image',
   'z-image',
+  'koukoutu',
 ]
 
 /**
@@ -61,7 +62,7 @@ export const ALL_MODEL_TYPES: ModelType[] = [...IMAGE_MODEL_TYPES, ...CHAT_MODEL
  * - 使用场景：
  *   - index.post.ts: 创建任务时验证 apiFormat 参数
  */
-export const API_FORMATS: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat', 'claude']
+export const API_FORMATS: ApiFormat[] = ['mj-proxy', 'gemini', 'dalle', 'openai-chat', 'claude', 'koukoutu']
 
 // ==================== 模型类型与 API 格式映射 ====================
 
@@ -83,6 +84,7 @@ export const MODEL_API_FORMAT_OPTIONS: Record<ModelType, ApiFormat[]> = {
   'grok-image': ['openai-chat'],
   'qwen-image': ['openai-chat'],
   'z-image': ['dalle'],
+  'koukoutu': ['koukoutu'],
   // 对话模型（支持 OpenAI Chat 和 Claude 格式）
   'gpt': ['openai-chat', 'claude'],
   'claude': ['openai-chat', 'claude'],
@@ -117,6 +119,7 @@ export const MODEL_CATEGORY_MAP: Record<ModelType, ModelCategory> = {
   'grok-image': 'image',
   'qwen-image': 'image',
   'z-image': 'image',
+  'koukoutu': 'image',
   // 对话模型
   'gpt': 'chat',
   'claude': 'chat',
@@ -157,6 +160,7 @@ export const DEFAULT_MODEL_NAMES: Record<ModelType, string> = {
   'grok-image': 'grok-4',
   'qwen-image': 'qwen-image',
   'z-image': 'z-image-turbo',
+  'koukoutu': 'background-removal',
   // 对话模型
   'gpt': 'gpt-4o',
   'claude': 'claude-sonnet-4-20250514',
@@ -194,6 +198,7 @@ export const DEFAULT_ESTIMATED_TIMES: Record<ImageModelType, number> = {
   'grok-image': 30,
   'qwen-image': 30,
   'z-image': 15,
+  'koukoutu': 10,
 }
 
 /**
@@ -224,6 +229,7 @@ export const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   'grok-image': 'Grok 绘图',
   'qwen-image': '通义万相',
   'z-image': 'Z-Image',
+  'koukoutu': '抠抠图',
   // 对话模型
   'gpt': 'GPT',
   'claude': 'Claude',
@@ -255,6 +261,7 @@ export const API_FORMAT_LABELS: Record<ApiFormat, string> = {
   'dalle': 'DALL-E API',
   'openai-chat': 'OpenAI Chat',
   'claude': 'Claude API',
+  'koukoutu': '抠抠图 API',
 }
 
 /**
@@ -284,6 +291,7 @@ export const MODEL_TYPE_ICONS: Record<ImageModelType, string> = {
   'grok-image': 'i-heroicons-rocket-launch',
   'qwen-image': 'i-heroicons-cloud',
   'z-image': 'i-heroicons-cube',
+  'koukoutu': 'i-heroicons-scissors',
 }
 
 /**
@@ -302,6 +310,7 @@ export const TASK_CARD_MODEL_DISPLAY: Record<ImageModelType, { label: string; co
   'grok-image': { label: 'Grok', color: 'bg-red-500/80' },
   'qwen-image': { label: '通义', color: 'bg-violet-500/80' },
   'z-image': { label: 'Z-Image', color: 'bg-indigo-500/80' },
+  'koukoutu': { label: '抠图', color: 'bg-pink-500/80' },
 }
 
 /**
@@ -320,6 +329,7 @@ export const MODEL_USAGE_HINTS: Record<ImageModelType, { text: string; type: 'wa
   'grok-image': { text: 'xAI 图像生成模型，风格多样，响应快速', type: 'info' },
   'qwen-image': { text: '阿里通义万相，中文提示词效果好', type: 'info' },
   'z-image': { text: 'Gitee AI 图像生成模型，响应快速', type: 'info' },
+  'koukoutu': { text: '智能抠图服务，自动移除图片背景', type: 'info' },
 }
 
 /**

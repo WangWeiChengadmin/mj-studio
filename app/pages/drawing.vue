@@ -23,8 +23,8 @@ async function handleSubmit(prompt: string, negativePrompt: string, images: stri
       body: {
         prompt,
         negativePrompt,
-        base64Array: images,
-        type: images.length > 0 && !prompt ? 'blend' : 'imagine',
+        images,
+        type: apiFormat === 'mj-proxy' && images.length > 0 && !prompt ? 'blend' : 'imagine',
         modelConfigId,
         modelType,
         apiFormat,

@@ -6,7 +6,8 @@ import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
-import { downloadFile, saveBase64Image, getFileUrl } from './file'
+import { createKoukoutuService } from './koukoutu'
+import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
 import { logResponse } from './logger'
 import type { GenerateResult } from './types'
@@ -26,6 +27,17 @@ function isAbortError(error: any): boolean {
 }
 
 export function useTaskService() {
+  // 将本地 URL 数组转换为 Base64 数组
+  function convertImagesToBase64(images: string[]): string[] {
+    return images.map(url => {
+      // 如果已经是 base64，直接返回
+      if (url.startsWith('data:')) return url
+      // 从本地 URL 提取文件名并读取为 base64
+      const fileName = url.replace(/^\/api\/files\//, '')
+      return readFileAsBase64(fileName) || url
+    }).filter(Boolean) as string[]
+  }
+
   // 创建任务（仅保存到数据库）
   async function createTask(data: {
     userId: number
@@ -321,6 +333,9 @@ export function useTaskService() {
         case 'openai-chat':
           await submitToOpenAIChat(task, config, controller.signal)
           break
+        case 'koukoutu':
+          await submitToKoukoutu(task, config)
+          break
         default:
           await updateTask(taskId, {
             status: 'failed',
@@ -379,13 +394,13 @@ export function useTaskService() {
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await gemini.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal)
+        const base64Images = convertImagesToBase64(task.images)
+        result = await gemini.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal)
       } else {
         result = await gemini.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
-      // 如果是取消导致的错误，不更新状态（由取消逻辑处理）
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
         return
@@ -405,13 +420,13 @@ export function useTaskService() {
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await dalle.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal, task.negativePrompt ?? undefined)
+        const base64Images = convertImagesToBase64(task.images)
+        result = await dalle.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal, task.negativePrompt ?? undefined)
       } else {
         result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal, task.negativePrompt ?? undefined)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
-      // 如果是取消导致的错误，不更新状态（由取消逻辑处理）
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
         return
@@ -431,13 +446,13 @@ export function useTaskService() {
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
-        result = await openai.generateImageWithRef(task.prompt ?? '', task.images, modelName, task.id, signal)
+        const base64Images = convertImagesToBase64(task.images)
+        result = await openai.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal)
       } else {
         result = await openai.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
       await handleSyncResult(task, config, result)
     } catch (error: any) {
-      // 如果是取消导致的错误，不更新状态（由取消逻辑处理）
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
         return
@@ -449,16 +464,56 @@ export function useTaskService() {
     }
   }
 
+  // 提交到抠抠图 API（异步轮询）
+  async function submitToKoukoutu(task: Task, config: ModelConfig): Promise<void> {
+    // 抠抠图必须有参考图
+    if (!task.images || task.images.length === 0) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: '抠抠图需要上传图片',
+      })
+      return
+    }
+
+    const koukoutu = createKoukoutuService(config.baseUrl, config.apiKey)
+    const modelKey = task.modelName || 'background-removal'
+
+    try {
+      const base64Images = convertImagesToBase64(task.images)
+      const result = await koukoutu.create(base64Images[0], modelKey, task.id)
+
+      if (result.code !== 200) {
+        await updateTask(task.id, {
+          status: 'failed',
+          error: result.message || ERROR_MESSAGES.UNKNOWN,
+        })
+        return
+      }
+
+      // 更新上游任务ID和状态
+      await updateTask(task.id, {
+        status: 'processing',
+        upstreamTaskId: String(result.data.task_id),
+      })
+    } catch (error: any) {
+      await updateTask(task.id, {
+        status: 'failed',
+        error: classifyFetchError(error),
+      })
+    }
+  }
+
   // 提交到MJ API（异步执行）
   async function submitToMJ(task: Task, config: ModelConfig): Promise<void> {
     const mj = createMJService(config.baseUrl, config.apiKey)
 
     try {
       let result
+      const base64Images = task.images ? convertImagesToBase64(task.images) : []
       if (task.type === 'blend') {
-        result = await mj.blend(task.images ?? [], 'SQUARE', task.id)
+        result = await mj.blend(base64Images, 'SQUARE', task.id)
       } else {
-        result = await mj.imagine(task.prompt ?? '', task.images ?? [], task.id)
+        result = await mj.imagine(task.prompt ?? '', base64Images, task.id)
       }
 
       if (result.code !== 1) {
@@ -482,19 +537,67 @@ export function useTaskService() {
     }
   }
 
-  // 同步任务状态（仅MJ需要轮询）
+  // 同步任务状态（MJ 和抠抠图需要轮询）
   async function syncTaskStatus(taskId: number): Promise<Task | undefined> {
     const data = await getTaskWithConfig(taskId)
     if (!data) return undefined
 
     const { task, config } = data
 
-    // 非MJ任务不需要轮询
-    if (task.apiFormat !== 'mj-proxy') {
+    // 只有 MJ 和抠抠图需要轮询
+    if (task.apiFormat === 'koukoutu') {
+      return await syncKoukoutuStatus(task, config)
+    } else if (task.apiFormat === 'mj-proxy') {
+      return await syncMJStatus(task, config)
+    }
+
+    return task
+  }
+
+  // 同步抠抠图任务状态
+  async function syncKoukoutuStatus(task: Task, config: ModelConfig): Promise<Task | undefined> {
+    if (!task.upstreamTaskId) {
       return task
     }
 
-    // MJ任务需要轮询状态
+    const koukoutu = createKoukoutuService(config.baseUrl, config.apiKey)
+
+    try {
+      const result = await koukoutu.query(task.upstreamTaskId)
+
+      let status: TaskStatus = task.status
+      let imageUrl: string | null = null
+
+      if (result.data.state === 1) {
+        // 成功
+        status = 'success'
+        if (result.data.result_file) {
+          const fileName = await downloadFile(result.data.result_file)
+          if (fileName) {
+            imageUrl = getFileUrl(fileName)
+          }
+          await updateEstimatedTime(config, task.modelType, task.createdAt)
+        }
+      } else if (result.data.state === -1) {
+        // 失败
+        status = 'failed'
+      }
+      // state === 0 表示处理中，保持 processing 状态
+
+      return await updateTask(task.id, {
+        status,
+        progress: status === 'success' ? '100%' : null,
+        imageUrl,
+        error: status === 'failed' ? '抠图处理失败' : null,
+      })
+    } catch (error: any) {
+      console.error('同步抠抠图任务状态失败:', error.message)
+      return task
+    }
+  }
+
+  // 同步 MJ 任务状态
+  async function syncMJStatus(task: Task, config: ModelConfig): Promise<Task | undefined> {
     if (!task.upstreamTaskId) {
       return task
     }

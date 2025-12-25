@@ -258,7 +258,11 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       </div>
 
       <!-- 表单 -->
-      <UForm id="model-config-form" :state="form" :validate="validate" class="space-y-6" @submit="onSubmit">
+      <UForm id="model-config-form" :state="form" :validate="validate" class="space-y-6" autocomplete="off" @submit="onSubmit">
+        <!-- 隐藏输入框防止浏览器自动填充 -->
+        <input type="text" style="display:none" />
+        <input type="password" style="display:none" />
+
         <!-- 基本信息卡片 -->
         <div class="max-w-2xl bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-4">
           <h2 class="text-lg font-medium text-(--ui-text) mb-4">基本信息</h2>
@@ -286,6 +290,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
               type="password"
               placeholder="sk-xxx..."
               class="w-full"
+              autocomplete="new-password"
             />
           </UFormField>
 

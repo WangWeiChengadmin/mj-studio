@@ -31,6 +31,7 @@ export type ImageModelType =
   | 'grok-image'   // xAI Grok 图像生成
   | 'qwen-image'   // 阿里通义万相
   | 'z-image'      // Gitee AI Z-Image
+  | 'koukoutu'     // 抠抠图（背景移除）
 
 // ==================== 对话相关类型 ====================
 
@@ -74,6 +75,7 @@ export type ApiFormat =
   | 'dalle'        // OpenAI DALL-E Images API 格式
   | 'openai-chat'  // OpenAI Chat Completions API 格式
   | 'claude'       // Anthropic Claude Messages API 格式
+  | 'koukoutu'     // 抠抠图 API 格式（异步轮询）
 
 // ==================== 任务状态类型 ====================
 

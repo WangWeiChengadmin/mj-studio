@@ -280,7 +280,7 @@ async function showErrorDetail() {
 <template>
   <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-xl border border-(--ui-border) overflow-hidden">
     <!-- 图片预览 -->
-    <div class="aspect-square bg-black/20 relative">
+    <div class="aspect-square relative" :class="task.imageUrl && !isBlurred ? 'checkerboard-bg' : 'bg-(--ui-bg-muted)'">
       <img
         v-if="task.imageUrl"
         :src="task.imageUrl"
@@ -636,3 +636,25 @@ async function showErrorDetail() {
     </UModal>
   </div>
 </template>
+
+<style scoped>
+.checkerboard-bg {
+  background-image:
+    linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+    linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+    linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #fff;
+}
+
+:root.dark .checkerboard-bg {
+  background-image:
+    linear-gradient(45deg, #3a3a3a 25%, transparent 25%),
+    linear-gradient(-45deg, #3a3a3a 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #3a3a3a 75%),
+    linear-gradient(-45deg, transparent 75%, #3a3a3a 75%);
+  background-color: #2a2a2a;
+}
+</style>

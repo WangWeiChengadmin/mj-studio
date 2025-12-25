@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
 
   const body = await readBody(event)
-  const { prompt, negativePrompt, base64Array = [], type = 'imagine', modelConfigId, modelType, apiFormat, modelName } = body
+  const { prompt, negativePrompt, images = [], type = 'imagine', modelConfigId, modelType, apiFormat, modelName } = body
 
   // 验证模型配置
   if (!modelConfigId) {
@@ -56,7 +56,15 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!prompt && type === 'imagine') {
+  // 抠抠图必须有图片，不需要提示词
+  if (apiFormat === 'koukoutu') {
+    if (images.length === 0) {
+      throw createError({
+        statusCode: 400,
+        message: '抠抠图需要上传图片',
+      })
+    }
+  } else if (!prompt && type === 'imagine') {
     throw createError({
       statusCode: 400,
       message: '请输入提示词',
@@ -71,7 +79,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (type === 'blend' && base64Array.length < 2) {
+  if (type === 'blend' && images.length < 2) {
     throw createError({
       statusCode: 400,
       message: '混合模式至少需要2张图片',
@@ -93,7 +101,7 @@ export default defineEventHandler(async (event) => {
     modelName: modelName || modelTypeConfig.modelName,
     prompt,
     negativePrompt,
-    images: base64Array,
+    images: images,
     type,
     isBlurred: blurByDefault,
   })
