@@ -5,50 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1766508463462,
-      "tag": "0000_unique_miek",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1766508729208,
-      "tag": "0001_violet_sentinels",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1766544986805,
-      "tag": "0002_fuzzy_iron_man",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1766669755271,
-      "tag": "0003_careful_grandmaster",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1766736838044,
-      "tag": "0004_safe_stryfe",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1766740479829,
-      "tag": "0006_replace-isdefault-with-sortorder",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1766744172360,
-      "tag": "0006_add-aimodels-soft-delete",
+      "when": 1766755649449,
+      "tag": "0000_initial",
       "breakpoints": true
     }
   ]

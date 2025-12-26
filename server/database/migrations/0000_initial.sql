@@ -1,3 +1,16 @@
+CREATE TABLE `aimodels` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`upstream_id` integer NOT NULL,
+	`category` text NOT NULL,
+	`model_type` text NOT NULL,
+	`api_format` text NOT NULL,
+	`model_name` text NOT NULL,
+	`estimated_time` integer DEFAULT 60 NOT NULL,
+	`key_name` text DEFAULT 'default' NOT NULL,
+	`created_at` integer NOT NULL,
+	`deleted_at` integer
+);
+--> statement-breakpoint
 CREATE TABLE `assistants` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` integer NOT NULL,
@@ -5,7 +18,8 @@ CREATE TABLE `assistants` (
 	`description` text,
 	`avatar` text,
 	`system_prompt` text,
-	`model_config_id` integer,
+	`upstream_id` integer,
+	`aimodel_id` integer,
 	`model_name` text,
 	`is_default` integer DEFAULT false NOT NULL,
 	`created_at` integer NOT NULL
@@ -26,7 +40,8 @@ CREATE TABLE `messages` (
 	`role` text NOT NULL,
 	`content` text NOT NULL,
 	`files` text,
-	`model_config_id` integer,
+	`upstream_id` integer,
+	`aimodel_id` integer,
 	`model_name` text,
 	`mark` text,
 	`status` text,
@@ -34,25 +49,14 @@ CREATE TABLE `messages` (
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `model_configs` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`user_id` integer NOT NULL,
-	`name` text NOT NULL,
-	`base_url` text NOT NULL,
-	`api_key` text NOT NULL,
-	`model_type_configs` text NOT NULL,
-	`remark` text,
-	`is_default` integer DEFAULT false NOT NULL,
-	`created_at` integer NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE `tasks` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`user_id` integer DEFAULT 1 NOT NULL,
-	`model_config_id` integer NOT NULL,
+	`upstream_id` integer NOT NULL,
+	`aimodel_id` integer NOT NULL,
 	`model_type` text NOT NULL,
 	`api_format` text NOT NULL,
-	`model_name` text,
+	`model_name` text NOT NULL,
 	`prompt` text,
 	`negative_prompt` text,
 	`images` text DEFAULT '[]',
@@ -63,10 +67,27 @@ CREATE TABLE `tasks` (
 	`image_url` text,
 	`error` text,
 	`is_blurred` integer DEFAULT true NOT NULL,
+	`unique_id` text,
+	`source_type` text DEFAULT 'workbench',
 	`buttons` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	`deleted_at` integer
+);
+--> statement-breakpoint
+CREATE TABLE `upstreams` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`user_id` integer NOT NULL,
+	`name` text NOT NULL,
+	`base_url` text NOT NULL,
+	`api_key` text NOT NULL,
+	`api_keys` text,
+	`remark` text,
+	`sort_order` integer DEFAULT 999 NOT NULL,
+	`upstream_platform` text,
+	`user_api_key` text,
+	`upstream_info` text,
+	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `user_settings` (
@@ -85,7 +106,6 @@ CREATE TABLE `users` (
 	`password` text NOT NULL,
 	`name` text,
 	`avatar` text,
-	`blur_by_default` integer DEFAULT true NOT NULL,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
