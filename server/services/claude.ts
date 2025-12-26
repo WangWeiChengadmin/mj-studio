@@ -125,7 +125,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
     const startTime = Date.now()
 
     if (logContext) {
-      const ctx = { ...logContext, baseUrl: config.baseUrl, modelName }
+      const ctx = { ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }
       const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
       const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
       const currentSize = calcSize(userMessage)
@@ -164,7 +164,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
         const errorData = await response.json().catch(() => ({}))
         const errorMsg = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
         if (logContext) {
-          logError({ ...logContext, baseUrl: config.baseUrl, modelName }, errorMsg)
+          logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, errorMsg)
         }
         return { success: false, error: errorMsg }
       }
@@ -178,7 +178,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
       const durationMs = Date.now() - startTime
 
       if (logContext) {
-        logResponse({ ...logContext, baseUrl: config.baseUrl, modelName }, calcSize(content), durationMs)
+        logResponse({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, calcSize(content), durationMs)
       }
 
       return { success: true, content }
@@ -187,7 +187,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
         return { success: false, error: '请求已取消' }
       }
       if (logContext) {
-        logError({ ...logContext, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
+        logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
       }
       return { success: false, error: error.message || '请求失败' }
     }
@@ -208,7 +208,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
     const startTime = Date.now()
 
     if (logContext) {
-      const ctx = { ...logContext, baseUrl: config.baseUrl, modelName }
+      const ctx = { ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }
       const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
       const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
       const currentSize = calcSize(userMessage)
@@ -254,7 +254,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
           errorMessage = errorData.error?.message || errorMessage
         } catch {}
         if (logContext) {
-          logError({ ...logContext, baseUrl: config.baseUrl, modelName }, errorMessage)
+          logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, errorMessage)
         }
         throw new Error(errorMessage)
       }
@@ -297,7 +297,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
             } else if (parsed.type === 'message_stop') {
               if (logContext) {
                 const durationMs = Date.now() - startTime
-                logComplete({ ...logContext, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
+                logComplete({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
               }
               yield { content: '', done: true }
               return
@@ -310,7 +310,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
 
       if (logContext) {
         const durationMs = Date.now() - startTime
-        logComplete({ ...logContext, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
+        logComplete({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
       }
       yield { content: '', done: true }
     } catch (error: any) {
@@ -319,7 +319,7 @@ export function createClaudeChatService(config: ModelConfig, keyName?: string) {
         return
       }
       if (logContext) {
-        logError({ ...logContext, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
+        logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
       }
       throw error
     }

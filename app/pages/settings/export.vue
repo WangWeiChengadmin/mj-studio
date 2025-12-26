@@ -225,9 +225,9 @@ async function handleImport(event: Event) {
 
     <div v-else class="space-y-6">
       <!-- 助手区域 -->
-      <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
+      <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border)">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-medium text-(--ui-text)">助手</h3>
+          <h3 class="text-base font-medium text-(--ui-text)">助手</h3>
           <UButton
             v-if="assistants.length > 0"
             size="xs"

@@ -47,7 +47,13 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const chatService = createChatService(config)
+    // 从 modelTypeConfigs 中查找对应模型的 keyName
+    const modelTypeConfig = config.modelTypeConfigs?.find(
+      mtc => mtc.modelName === modelName && mtc.category === 'chat'
+    )
+    const keyName = modelTypeConfig?.keyName
+
+    const chatService = createChatService(config, keyName)
     const result = await chatService.chat(
       modelName,
       OPTIMIZE_SYSTEM_PROMPT,

@@ -83,16 +83,18 @@ ${suggestionsPrompt}`
     mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
   )
   const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
+  const keyName = modelTypeConfig?.keyName
 
   // 根据 apiFormat 创建对应的聊天服务
   const chatService = apiFormat === 'claude'
-    ? createClaudeChatService(modelConfig)
-    : createChatService(modelConfig)
+    ? createClaudeChatService(modelConfig, keyName)
+    : createChatService(modelConfig, keyName)
 
   const logContext: LogContext = {
     type: '开场白',
     assistantId,
     assistantName: assistant.name,
+    keyName,
   }
 
   try {

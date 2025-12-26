@@ -118,17 +118,19 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
       mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
     )
     const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
+    const keyName = modelTypeConfig?.keyName
 
     // 根据 apiFormat 创建对应的聊天服务
     const chatService = apiFormat === 'claude'
-      ? createClaudeChatService(modelConfig)
-      : createChatService(modelConfig)
+      ? createClaudeChatService(modelConfig, keyName)
+      : createChatService(modelConfig, keyName)
 
     // 构建日志上下文
     const logContext: LogContext = {
       type: isCompressRequest ? '压缩' : '聊天',
       conversationId,
       conversationTitle: result.conversation.title,
+      keyName,
     }
 
     // 发起流式请求

@@ -1,15 +1,19 @@
 // 上游请求日志工具
 // 设计原则：所有日志操作都在 try-catch 中，失败静默，绝不影响主流程
 
-export type LogType = '聊天' | '重放' | '压缩' | '标题'
+export type LogType = '聊天' | '重放' | '压缩' | '标题' | '开场白' | '优化'
 export type LogEvent = '请求' | '完成' | '响应' | '中断' | '错误' | '重试' | '用量'
 
 export interface LogContext {
   type: LogType
-  conversationId: number
+  conversationId?: number
   conversationTitle?: string
-  baseUrl?: string
+  assistantId?: number
+  assistantName?: string
+  configName?: string   // 上游配置名称（优先显示）
+  baseUrl?: string      // API 地址（configName 未设置时备用）
   modelName?: string
+  keyName?: string
 }
 
 // 安全执行日志操作，失败静默
@@ -60,16 +64,24 @@ function truncateTitle(title?: string): string {
 
 // 日志前缀
 function prefix(ctx: LogContext, event: LogEvent): string {
-  return `[Chat] ${ctx.type}${event} | 对话#${ctx.conversationId} "${truncateTitle(ctx.conversationTitle)}"`
+  if (ctx.conversationId) {
+    return `[Chat] ${ctx.type}${event} | 对话#${ctx.conversationId} "${truncateTitle(ctx.conversationTitle)}"`
+  }
+  if (ctx.assistantId) {
+    return `[Chat] ${ctx.type}${event} | 助手#${ctx.assistantId} "${ctx.assistantName || '未知'}"`
+  }
+  return `[Chat] ${ctx.type}${event}`
 }
 
 // 请求日志
 export function logRequest(ctx: LogContext, stats: RequestStats): void {
   safeLog(() => {
     const total = stats.systemPromptSize + stats.historySize + stats.currentSize
+    const keyInfo = ctx.keyName ? ` Key:${ctx.keyName}` : ''
+    const upstream = ctx.configName || ctx.baseUrl || '未知'
     const parts = [
       prefix(ctx, '请求'),
-      `上游:${ctx.baseUrl || '未知'} 模型:${ctx.modelName || '未知'}`,
+      `上游:${upstream} 模型:${ctx.modelName || '未知'}${keyInfo}`,
       `提示词:${formatSize(stats.systemPromptSize)} 历史:${stats.historyCount}条/${formatSize(stats.historySize)} 当前:${formatSize(stats.currentSize)}`,
       `总计:${formatSize(total)}`,
     ]
@@ -81,9 +93,11 @@ export function logRequest(ctx: LogContext, stats: RequestStats): void {
 export function logCompressRequest(ctx: LogContext, compressCount: number, compressSize: number, promptSize: number): void {
   safeLog(() => {
     const total = compressSize + promptSize
+    const keyInfo = ctx.keyName ? ` Key:${ctx.keyName}` : ''
+    const upstream = ctx.configName || ctx.baseUrl || '未知'
     const parts = [
       prefix(ctx, '请求'),
-      `上游:${ctx.baseUrl || '未知'} 模型:${ctx.modelName || '未知'}`,
+      `上游:${upstream} 模型:${ctx.modelName || '未知'}${keyInfo}`,
       `待压缩:${compressCount}条/${formatSize(compressSize)} 提示词:${formatSize(promptSize)}`,
       `总计:${formatSize(total)}`,
     ]

@@ -15,9 +15,10 @@ export type {
   MessageFile,
   ModelTypeConfig,
   ApiKeyConfig,
+  BalanceApiType,
 } from '../../app/shared/types'
 
-import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig } from '../../app/shared/types'
+import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, BalanceApiType } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -43,6 +44,8 @@ export const modelConfigs = sqliteTable('model_configs', {
   modelTypeConfigs: text('model_type_configs', { mode: 'json' }).$type<ModelTypeConfig[]>().notNull(), // 模型类型配置数组
   remark: text('remark'), // 备注说明
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // 是否默认
+  balanceApiType: text('balance_api_type').$type<BalanceApiType>(), // 余额查询 API 类型
+  balanceApiKey: text('balance_api_key'), // 余额查询使用的 API Key（可选，默认使用第一个 key）
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 

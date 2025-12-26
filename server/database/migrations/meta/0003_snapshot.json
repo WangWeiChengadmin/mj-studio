@@ -291,6 +291,20 @@
           "autoincrement": false,
           "default": false
         },
+        "balance_api_type": {
+          "name": "balance_api_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "balance_api_key": {
+          "name": "balance_api_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",

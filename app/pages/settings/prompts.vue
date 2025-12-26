@@ -80,10 +80,10 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
 
     <div v-else class="space-y-6">
       <!-- 对话压缩 Prompt -->
-      <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
+      <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border)">
         <div class="flex items-center justify-between mb-3">
           <div>
-            <h3 class="font-medium text-(--ui-text)">对话压缩</h3>
+            <h3 class="text-base font-medium text-(--ui-text)">对话压缩</h3>
             <p class="text-xs text-(--ui-text-muted) mt-1">当对话过长时，用于压缩历史消息为摘要</p>
           </div>
           <UButton size="xs" variant="ghost" color="neutral" @click="resetToDefault('compress')">

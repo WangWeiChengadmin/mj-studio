@@ -152,15 +152,13 @@ export type BalanceApiType = 'oneapi' | 'n1n' | 'yunwu'
 /**
  * API Key 配置
  * - 用于存储上游的多个 API Key
- * - 使用场景：模型配置中的多 Key 管理、余额查询
+ * - 使用场景：模型配置中的多 Key 管理
  */
 export interface ApiKeyConfig {
   /** Key 名称，如 "default", "premium", "backup" */
   name: string
   /** API Key 值 */
   key: string
-  /** 余额查询 API 类型（可选） */
-  balanceApiType?: BalanceApiType
 }
 
 // ==================== 模型类型配置接口 ====================

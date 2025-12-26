@@ -119,8 +119,8 @@ const embeddedModelName = computed({
 
     <div v-else class="space-y-4">
       <!-- 绘图设置 -->
-      <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
-        <h3 class="font-medium text-(--ui-text) mb-4">绘图</h3>
+      <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border)">
+        <h3 class="text-base font-medium text-(--ui-text) mb-4">绘图</h3>
         <div class="space-y-4">
           <label class="flex items-center justify-between cursor-pointer">
             <div>

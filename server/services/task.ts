@@ -321,6 +321,14 @@ export function useTaskService() {
 
     const { task, config } = data
 
+    // 获取 keyName 用于日志
+    const mtc = config.modelTypeConfigs?.find(m => m.modelName === task.modelName)
+    const keyName = mtc?.keyName || 'default'
+
+    // 输出任务提交日志
+    const promptPreview = task.prompt ? (task.prompt.length > 30 ? task.prompt.slice(0, 30) + '...' : task.prompt) : '(无提示词)'
+    console.log(`[Task] 提交 | #${taskId} ${task.modelType}/${task.apiFormat} | 上游:${config.name} 模型:${task.modelName || '默认'} Key:${keyName} | ${promptPreview}`)
+
     // 更新状态为提交中
     await updateTask(taskId, { status: 'submitting' })
 
@@ -370,12 +378,13 @@ export function useTaskService() {
 
     // 保存图片到本地
     let fileName: string | null = null
+    const logPrefix = `[Task] #${task.id}`
 
     if (result.imageBase64) {
       const dataUrl = `data:${result.mimeType || 'image/png'};base64,${result.imageBase64}`
       fileName = saveBase64Image(dataUrl)
     } else if (result.imageUrl) {
-      fileName = await downloadFile(result.imageUrl)
+      fileName = await downloadFile(result.imageUrl, logPrefix)
     }
 
     if (!fileName) {
@@ -393,7 +402,7 @@ export function useTaskService() {
     })
 
     // 更新预计时间
-    await updateEstimatedTime(config, task.modelType, task.createdAt)
+    await updateEstimatedTime(config, task, task.createdAt)
   }
 
   // 提交到Gemini（同步API）
@@ -571,6 +580,7 @@ export function useTaskService() {
     }
 
     const koukoutu = createKoukoutuService(config.baseUrl, getApiKey(config, task))
+    const logPrefix = `[Task] #${task.id}`
 
     try {
       const result = await koukoutu.query(task.upstreamTaskId)
@@ -582,11 +592,11 @@ export function useTaskService() {
         // 成功
         status = 'success'
         if (result.data.result_file) {
-          const fileName = await downloadFile(result.data.result_file)
+          const fileName = await downloadFile(result.data.result_file, logPrefix)
           if (fileName) {
             imageUrl = getFileUrl(fileName)
           }
-          await updateEstimatedTime(config, task.modelType, task.createdAt)
+          await updateEstimatedTime(config, task, task.createdAt)
         }
       } else if (result.data.state === -1) {
         // 失败
@@ -613,6 +623,7 @@ export function useTaskService() {
     }
 
     const mj = createMJService(config.baseUrl, getApiKey(config, task))
+    const logPrefix = `[Task] #${task.id}`
 
     try {
       const mjTask = await mj.fetchTask(task.upstreamTaskId)
@@ -630,14 +641,14 @@ export function useTaskService() {
       // 处理图片URL：成功时下载到本地
       let imageUrl = mjTask.imageUrl || null
       if (status === 'success' && imageUrl && !imageUrl.startsWith('/api/images/')) {
-        const fileName = await downloadFile(imageUrl)
+        const fileName = await downloadFile(imageUrl, logPrefix)
         if (fileName) {
           imageUrl = getFileUrl(fileName)
         }
         // 下载失败时保留原始URL
 
         // 更新预计时间
-        await updateEstimatedTime(config, task.modelType, task.createdAt)
+        await updateEstimatedTime(config, task, task.createdAt)
       }
 
       // 对 MJ 的 failReason 进行分类
@@ -671,14 +682,14 @@ export function useTaskService() {
   }
 
   // 更新预计时间
-  async function updateEstimatedTime(config: ModelConfig, modelType: ModelType, startTime: Date): Promise<void> {
+  async function updateEstimatedTime(config: ModelConfig, task: Task, startTime: Date): Promise<void> {
     try {
       const endTime = new Date()
       const actualTime = Math.round((endTime.getTime() - startTime.getTime()) / 1000)
 
       // 找到对应的模型类型配置并更新预计时间
       const modelTypeConfigs = [...config.modelTypeConfigs]
-      const index = modelTypeConfigs.findIndex(mtc => mtc.modelType === modelType)
+      const index = modelTypeConfigs.findIndex(mtc => mtc.modelType === task.modelType)
 
       if (index >= 0) {
         modelTypeConfigs[index] = {
@@ -690,7 +701,7 @@ export function useTaskService() {
           .set({ modelTypeConfigs })
           .where(eq(modelConfigs.id, config.id))
 
-        console.log(`[Task] 更新 ${modelType} 预计时间: ${actualTime}s`)
+        console.log(`[Task] #${task.id} 更新预计时间 | ${config.name}/${task.modelName || task.modelType}: ${actualTime}s`)
       }
     } catch (error) {
       console.error('更新预计时间失败:', error)

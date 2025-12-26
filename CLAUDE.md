@@ -396,56 +396,22 @@ pnpm db:migrate
 
 ### 迁移规范
 
-- **必须使用 `drizzle-kit generate`**：禁止手动编写迁移 SQL 文件
 - **禁止手动修改 meta 文件夹**：`_journal.json` 和 `*_snapshot.json` 由工具自动维护
 - **snapshot 文件的作用**：记录每次迁移后的完整 schema 状态，用于生成增量迁移
-- **重置迁移历史**：仅在开发阶段且未上生产时，可删除 `migrations/` 目录重新生成
 - **自动迁移**：应用启动时通过 Nitro plugin (`server/plugins/migrate.ts`) 自动执行迁移
 
 ## UI 组件规范
 
-本项目使用 **Nuxt UI 3**，遵循以下规范：
+本项目使用 **Nuxt UI 4**，遵循以下规范：
 
 ### 表单组件
 
 **必须使用 `UForm` + `UFormField` 组合**，而非手动写 `<label>` 标签：
 
-```vue
-<!-- ✅ 正确 -->
-<UForm :state="formData" :validate="validate" @submit="onSubmit">
-  <UFormField label="用户名" name="username" required>
-    <UInput v-model="formData.username" placeholder="请输入" />
-  </UFormField>
-  <UButton type="submit">保存</UButton>
-</UForm>
-
-<!-- ❌ 错误：手动写 label -->
-<label class="block text-sm mb-2">用户名</label>
-<UInput v-model="formData.username" />
-```
-
 ### 模态框
 
 使用 `UModal` 组件，通过 `:ui` 属性调整宽度：
 
-```vue
-<UModal v-model:open="showModal" title="标题" :ui="{ content: 'sm:max-w-xl' }">
-  <template #body><!-- 内容 --></template>
-  <template #footer>
-    <UButton variant="ghost" @click="showModal = false">取消</UButton>
-    <UButton color="primary" @click="handleSave">保存</UButton>
-  </template>
-</UModal>
-```
-
-### Toast 通知
-
-使用 `useToast()` 替代 `alert()`：
-
-```typescript
-const toast = useToast()
-toast.add({ title: '保存成功', color: 'success' })
-toast.add({ title: '操作失败', description: '详细信息', color: 'error' })
 ```
 
 ### 样式原则
@@ -454,17 +420,6 @@ toast.add({ title: '操作失败', description: '详细信息', color: 'error' }
 2. **使用 CSS 变量**：如 `text-(--ui-text-muted)`、`bg-(--ui-bg-elevated)`
 3. **避免硬编码颜色**：使用主题变量确保深色模式兼容
 
-## 环境变量
-
-必需的环境变量（存放在 `.env` 文件）：
-
-```bash
-# JWT 密钥（必需）
-JWT_SECRET=your-secret-key
-
-# HMR 端口（可选，用于 Docker 环境）
-NUXT_HMR_PORT=24678
-```
 
 ## 注意事项
 

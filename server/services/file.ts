@@ -96,13 +96,13 @@ function getExtFromMimeType(mimeType: string): string {
 }
 
 // 从 URL 下载文件并保存到本地
-export async function downloadFile(url: string): Promise<string | null> {
+export async function downloadFile(url: string, logPrefix?: string): Promise<string | null> {
   try {
     ensureUploadDir()
 
     const response = await fetch(url)
     if (!response.ok) {
-      console.error('[File] 下载失败:', response.status, url)
+      console.error(`${logPrefix || '[File]'} 下载失败:`, response.status, url)
       return null
     }
 
@@ -114,7 +114,7 @@ export async function downloadFile(url: string): Promise<string | null> {
     const filePath = join(UPLOAD_DIR, fileName)
 
     writeFileSync(filePath, buffer)
-    console.log('[File] 已下载:', fileName)
+    console.log(`${logPrefix || '[File]'} 已下载: ${fileName}`)
 
     return fileName
   } catch (error) {

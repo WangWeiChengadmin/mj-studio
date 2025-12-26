@@ -86,7 +86,7 @@ function getModelCounts(modelTypeConfigs: ModelTypeConfig[]) {
       <div
         v-for="config in configs"
         :key="config.id"
-        class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border) hover:border-(--ui-border-accented) transition-colors cursor-pointer flex flex-col"
+        class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) hover:border-(--ui-border-accented) transition-colors cursor-pointer flex flex-col"
         @click="router.push(`/settings/models/${config.id}`)"
       >
         <!-- 标题行 -->

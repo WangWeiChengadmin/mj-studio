@@ -35,10 +35,12 @@ const form = reactive({
   apiKey: '', // 保留用于兼容，实际使用 apiKeys
   remark: '',
   isDefault: false,
+  balanceApiType: undefined as BalanceApiType | undefined,
+  balanceApiKey: '',
 })
 
 // 多 Key 配置
-const apiKeys = ref<ApiKeyConfig[]>([{ name: 'default', key: '', balanceApiType: undefined }])
+const apiKeys = ref<ApiKeyConfig[]>([{ name: 'default', key: '' }])
 
 // 绘图模型配置
 const imageModelConfigs = ref<ModelTypeConfig[]>([])
@@ -95,6 +97,8 @@ async function loadConfigData() {
         apiKey: config.apiKey,
         remark: config.remark || '',
         isDefault: config.isDefault,
+        balanceApiType: config.balanceApiType || undefined,
+        balanceApiKey: config.balanceApiKey || '',
       })
 
       // 加载 apiKeys
@@ -274,6 +278,8 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         modelTypeConfigs: allModelConfigs,
         remark: form.remark,
         isDefault: form.isDefault,
+        balanceApiType: form.balanceApiType,
+        balanceApiKey: form.balanceApiKey || null,
       })
       toast.add({ title: '配置已创建', color: 'success' })
     } else {
@@ -285,6 +291,8 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
         modelTypeConfigs: allModelConfigs,
         remark: form.remark || null,
         isDefault: form.isDefault,
+        balanceApiType: form.balanceApiType,
+        balanceApiKey: form.balanceApiKey || null,
       })
       toast.add({ title: '配置已更新', color: 'success' })
     }
@@ -300,20 +308,20 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
 </script>
 
 <template>
-  <div class="p-6">
-      <!-- 页面标题 -->
-      <div class="mb-6 flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-(--ui-text)">{{ pageTitle }}</h1>
-          <p class="text-(--ui-text-muted) text-sm mt-1">配置 AI 服务的连接信息和支持的模型</p>
-        </div>
-        <div class="flex gap-2">
-          <UButton variant="outline" color="neutral" @click="router.back()">取消</UButton>
-          <UButton type="submit" form="model-config-form">{{ isNew ? '创建' : '保存' }}</UButton>
-        </div>
+  <SettingsLayout>
+    <!-- 页面标题 -->
+    <div class="mb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-(--ui-text)">{{ pageTitle }}</h1>
+        <p class="text-(--ui-text-muted) text-sm mt-1">配置 AI 服务的连接信息和支持的模型</p>
       </div>
+      <div class="flex gap-2">
+        <UButton variant="outline" color="neutral" @click="router.back()">取消</UButton>
+        <UButton type="submit" form="model-config-form">{{ isNew ? '创建' : '保存' }}</UButton>
+      </div>
+    </div>
 
-      <!-- 表单 -->
+    <!-- 表单 -->
       <UForm id="model-config-form" :state="form" :validate="validate" class="space-y-6" autocomplete="off" @submit="onSubmit">
         <!-- 隐藏输入框防止浏览器自动填充 -->
         <input type="text" style="display:none" />
@@ -347,43 +355,51 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
               <UButton size="xs" variant="ghost" icon="i-heroicons-plus" @click="addApiKey">添加 Key</UButton>
             </div>
 
-            <div v-for="(keyConfig, index) in apiKeys" :key="index" class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border) space-y-2">
-              <div class="flex items-center gap-2">
-                <UInput
-                  v-model="keyConfig.name"
-                  placeholder="Key 名称"
-                  class="w-32"
-                  size="sm"
-                />
-                <UInput
-                  v-model="keyConfig.key"
-                  type="password"
-                  placeholder="sk-xxx..."
-                  class="flex-1"
-                  size="sm"
-                  autocomplete="new-password"
-                />
-                <UButton
-                  v-if="apiKeys.length > 1"
-                  size="xs"
-                  variant="ghost"
-                  color="error"
-                  icon="i-heroicons-trash"
-                  @click="removeApiKey(index)"
-                />
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-(--ui-text-muted)">余额查询：</span>
-                <USelect
-                  v-model="keyConfig.balanceApiType"
-                  :items="balanceApiOptions"
-                  size="xs"
-                  class="w-40"
-                  placeholder="选择类型"
-                />
-              </div>
+            <div v-for="(keyConfig, index) in apiKeys" :key="index" class="flex items-center gap-2 p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)">
+              <UInput
+                v-model="keyConfig.name"
+                placeholder="Key 名称"
+                class="w-32"
+                size="sm"
+              />
+              <UInput
+                v-model="keyConfig.key"
+                type="password"
+                placeholder="sk-xxx..."
+                class="flex-1"
+                size="sm"
+                autocomplete="new-password"
+              />
+              <UButton
+                v-if="apiKeys.length > 1"
+                size="xs"
+                variant="ghost"
+                color="error"
+                icon="i-heroicons-trash"
+                @click="removeApiKey(index)"
+              />
             </div>
           </div>
+
+          <!-- 余额查询配置 -->
+          <UFormField label="余额查询" name="balanceApiType">
+            <div class="flex items-center gap-3">
+              <USelect
+                v-model="form.balanceApiType"
+                :items="balanceApiOptions"
+                class="w-40"
+                placeholder="选择类型"
+              />
+              <UInput
+                v-if="form.balanceApiType"
+                v-model="form.balanceApiKey"
+                type="password"
+                placeholder="查询用 Key（留空使用第一个）"
+                class="w-60"
+                autocomplete="new-password"
+              />
+            </div>
+          </UFormField>
 
           <UFormField label="备注" name="remark">
             <UTextarea
@@ -467,7 +483,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                         <UInput
                           v-model="mtc.modelName"
                           :placeholder="DEFAULT_MODEL_NAMES[mtc.modelType as ModelType] || '可选'"
-                          class="w-80"
+                          class="w-60"
                         />
                       </UFormField>
 
@@ -561,7 +577,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                         <UInput
                           v-model="mtc.modelName"
                           placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
-                          class="w-80"
+                          class="w-60"
                           @input="onChatModelNameChange(index)"
                         />
                       </UFormField>
@@ -594,5 +610,5 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
           </UTabs>
         </div>
       </UForm>
-  </div>
+  </SettingsLayout>
 </template>

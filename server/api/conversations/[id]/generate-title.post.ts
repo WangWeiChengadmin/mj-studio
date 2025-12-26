@@ -89,17 +89,19 @@ ${contextMessages.join('\n\n')}`
     mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
   )
   const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
+  const keyName = modelTypeConfig?.keyName
 
   // 根据 apiFormat 创建对应的聊天服务
   const chatService = apiFormat === 'claude'
-    ? createClaudeChatService(modelConfig)
-    : createChatService(modelConfig)
+    ? createClaudeChatService(modelConfig, keyName)
+    : createChatService(modelConfig, keyName)
 
   // 构建日志上下文
   const logContext: LogContext = {
     type: '标题',
     conversationId,
     conversationTitle: result.conversation.title,
+    keyName,
   }
 
   const startTime = Date.now()
