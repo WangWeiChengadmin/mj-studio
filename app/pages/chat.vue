@@ -177,6 +177,21 @@ async function handleSaveAssistant(data: any) {
   }
 }
 
+// 删除助手
+async function handleDeleteAssistant(id: number) {
+  try {
+    await deleteAssistant(id)
+    showAssistantEditor.value = false
+    toast.add({ title: '助手已删除', color: 'success' })
+    // deleteAssistant 已自动切换到默认助手，更新 URL
+    if (currentAssistantId.value) {
+      updateUrlParams(currentAssistantId.value, null)
+    }
+  } catch (error: any) {
+    toast.add({ title: error.message || '删除失败', color: 'error' })
+  }
+}
+
 // 创建新对话（进入虚拟对话状态）
 function handleCreateConversation() {
   if (!currentAssistantId.value) return
@@ -554,6 +569,7 @@ onUnmounted(() => {
       :assistant="editingAssistant"
       :upstreams="upstreams"
       @save="handleSaveAssistant"
+      @delete="handleDeleteAssistant"
     />
   </div>
 </template>

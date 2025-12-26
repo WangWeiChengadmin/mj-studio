@@ -12,7 +12,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:open': [value: boolean]
   save: [data: Partial<Assistant>]
+  delete: [id: number]
 }>()
+
+// 删除确认弹窗状态
+const deleteConfirmOpen = ref(false)
 
 // 表单数据
 const formData = reactive({
@@ -180,6 +184,14 @@ function onSubmit(event: FormSubmitEvent<typeof formData>) {
 function handleClose() {
   emit('update:open', false)
 }
+
+// 确认删除
+function handleDeleteConfirm() {
+  if (props.assistant) {
+    emit('delete', props.assistant.id)
+    deleteConfirmOpen.value = false
+  }
+}
 </script>
 
 <template>
@@ -275,15 +287,53 @@ function handleClose() {
         </UFormField>
 
         <!-- 底部按钮 -->
-        <div class="flex justify-end gap-2 pt-2">
-          <UButton variant="ghost" type="button" @click="handleClose">
-            取消
-          </UButton>
-          <UButton color="primary" type="submit">
-            保存
-          </UButton>
+        <div class="flex justify-between pt-2">
+          <!-- 左侧：删除按钮（仅编辑模式且非默认助手时显示） -->
+          <div>
+            <UButton
+              v-if="assistant && !assistant.isDefault"
+              color="error"
+              variant="ghost"
+              type="button"
+              @click="deleteConfirmOpen = true"
+            >
+              删除助手
+            </UButton>
+          </div>
+          <!-- 右侧：取消和保存 -->
+          <div class="flex gap-2">
+            <UButton variant="ghost" type="button" @click="handleClose">
+              取消
+            </UButton>
+            <UButton color="primary" type="submit">
+              保存
+            </UButton>
+          </div>
         </div>
       </UForm>
+    </template>
+  </UModal>
+
+  <!-- 删除确认弹窗 -->
+  <UModal
+    :open="deleteConfirmOpen"
+    title="确认删除"
+    @update:open="deleteConfirmOpen = $event"
+  >
+    <template #body>
+      <p class="text-(--ui-text-muted)">
+        确定要删除助手「{{ assistant?.name }}」吗？该助手下的所有对话也将被删除，此操作无法撤销。
+      </p>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <UButton variant="ghost" @click="deleteConfirmOpen = false">
+          取消
+        </UButton>
+        <UButton color="error" @click="handleDeleteConfirm">
+          确认删除
+        </UButton>
+      </div>
     </template>
   </UModal>
 </template>
