@@ -1,44 +1,20 @@
 <script setup lang="ts">
-import type { ModelTypeConfig } from '../../../shared/types'
+import type { Aimodel } from '../../../composables/useUpstreams'
 
-const { configs, isLoading, loadConfigs, updateConfig, deleteConfig } = useModelConfigs()
+const { upstreams, isLoading, loadUpstreams, updateUpstream, queryBalance } = useUpstreams()
 const toast = useToast()
 const router = useRouter()
 
-// 删除确认
-const showDeleteConfirm = ref(false)
-const deletingConfigId = ref<number | null>(null)
+// 余额查询中的配置 ID
+const queryingBalanceIds = ref<Set<number>>(new Set())
 
 onMounted(() => {
-  loadConfigs()
+  loadUpstreams()
 })
-
-function handleDeleteClick(id: number) {
-  deletingConfigId.value = id
-  showDeleteConfirm.value = true
-}
-
-async function confirmDelete() {
-  if (!deletingConfigId.value) return
-
-  try {
-    await deleteConfig(deletingConfigId.value)
-    toast.add({ title: '配置已删除', color: 'success' })
-  } catch (error: any) {
-    toast.add({
-      title: '删除失败',
-      description: error.data?.message || error.message,
-      color: 'error',
-    })
-  } finally {
-    showDeleteConfirm.value = false
-    deletingConfigId.value = null
-  }
-}
 
 async function handleSetDefault(id: number) {
   try {
-    await updateConfig(id, { isDefault: true })
+    await updateUpstream(id, { isDefault: true })
     toast.add({ title: '已设为默认', color: 'success' })
   } catch (error: any) {
     toast.add({
@@ -50,11 +26,51 @@ async function handleSetDefault(id: number) {
 }
 
 // 统计绘图/对话模型数量
-function getModelCounts(modelTypeConfigs: ModelTypeConfig[]) {
-  if (!modelTypeConfigs) return { image: 0, chat: 0 }
-  const image = modelTypeConfigs.filter(c => !c.category || c.category === 'image').length
-  const chat = modelTypeConfigs.filter(c => c.category === 'chat').length
+function getModelCounts(aimodels: Aimodel[]) {
+  if (!aimodels) return { image: 0, chat: 0 }
+  const image = aimodels.filter(m => !m.category || m.category === 'image').length
+  const chat = aimodels.filter(m => m.category === 'chat').length
   return { image, chat }
+}
+
+// 查询余额
+async function handleQueryBalance(id: number) {
+  queryingBalanceIds.value.add(id)
+  try {
+    const result = await queryBalance(id)
+    if (result.success) {
+      toast.add({ title: '余额查询成功', color: 'success' })
+    } else {
+      toast.add({ title: '查询失败', description: result.error, color: 'error' })
+    }
+  } catch (error: any) {
+    toast.add({
+      title: '查询失败',
+      description: error.data?.message || error.message,
+      color: 'error',
+    })
+  } finally {
+    queryingBalanceIds.value.delete(id)
+  }
+}
+
+// 格式化配额
+function formatQuota(quota?: number): string {
+  if (quota === undefined || quota === null) return '未查询'
+  if (quota >= 1000000) {
+    return `${(quota / 1000000).toFixed(1)}M`
+  }
+  if (quota >= 1000) {
+    return `${(quota / 1000).toFixed(1)}K`
+  }
+  return quota.toString()
+}
+
+// 平台类型标签
+const platformLabels: Record<string, string> = {
+  oneapi: 'OneAPI',
+  n1n: 'n1n',
+  yunwu: '云雾',
 }
 </script>
 
@@ -62,7 +78,7 @@ function getModelCounts(modelTypeConfigs: ModelTypeConfig[]) {
   <SettingsLayout>
     <!-- 操作栏 -->
     <div class="mb-4 flex items-center justify-between">
-      <h2 class="text-lg font-medium text-(--ui-text)">模型配置</h2>
+      <h2 class="text-lg font-medium text-(--ui-text)">上游配置</h2>
       <UButton size="sm" @click="router.push('/settings/models/new')">
         <UIcon name="i-heroicons-plus" class="w-4 h-4 mr-1" />
         添加
@@ -75,72 +91,83 @@ function getModelCounts(modelTypeConfigs: ModelTypeConfig[]) {
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="configs.length === 0" class="text-center py-12">
+    <div v-else-if="upstreams.length === 0" class="text-center py-12">
       <UIcon name="i-heroicons-cpu-chip" class="w-16 h-16 text-(--ui-text-dimmed)/50 mx-auto mb-4" />
-      <p class="text-(--ui-text-muted) mb-4">还没有模型配置</p>
+      <p class="text-(--ui-text-muted) mb-4">还没有上游配置</p>
       <UButton @click="router.push('/settings/models/new')">添加第一个配置</UButton>
     </div>
 
     <!-- 配置列表 -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       <div
-        v-for="config in configs"
-        :key="config.id"
+        v-for="upstream in upstreams"
+        :key="upstream.id"
         class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) hover:border-(--ui-border-accented) transition-colors cursor-pointer flex flex-col"
-        @click="router.push(`/settings/models/${config.id}`)"
+        @click="router.push(`/settings/models/${upstream.id}`)"
       >
         <!-- 标题行 -->
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2 min-w-0">
-            <h3 class="text-(--ui-text) font-medium truncate">{{ config.name }}</h3>
+            <h3 class="text-(--ui-text) font-medium truncate">{{ upstream.name }}</h3>
             <span
-              v-if="config.isDefault"
+              v-if="upstream.isDefault"
               class="px-2 py-0.5 rounded-full text-xs font-medium bg-(--ui-success)/20 text-(--ui-success) shrink-0"
             >
               默认
             </span>
           </div>
           <div class="flex gap-1 shrink-0" @click.stop>
-            <UButton size="xs" variant="ghost" color="neutral" @click="router.push(`/settings/models/${config.id}`)">
-              <UIcon name="i-heroicons-pencil" class="w-4 h-4" />
+            <UButton
+              v-if="!upstream.isDefault"
+              size="xs"
+              variant="ghost"
+              color="neutral"
+              title="设为默认"
+              @click="handleSetDefault(upstream.id)"
+            >
+              <UIcon name="i-heroicons-star" class="w-4 h-4" />
             </UButton>
-            <UButton size="xs" variant="ghost" color="error" @click="handleDeleteClick(config.id)">
-              <UIcon name="i-heroicons-trash" class="w-4 h-4" />
+            <UButton size="xs" variant="ghost" color="neutral" @click="router.push(`/settings/models/${upstream.id}`)">
+              <UIcon name="i-heroicons-pencil" class="w-4 h-4" />
             </UButton>
           </div>
         </div>
 
         <!-- API 信息 -->
-        <p class="text-(--ui-text-dimmed) text-sm truncate">{{ config.baseUrl }}</p>
-        <p class="text-(--ui-text-dimmed)/70 text-xs mt-1">API Key: {{ config.apiKey.slice(0, 8) }}...</p>
+        <p class="text-(--ui-text-dimmed) text-sm truncate">{{ upstream.baseUrl }}</p>
 
         <!-- 模型数量统计 -->
         <div class="mt-3 flex flex-wrap gap-2">
-          <span v-if="getModelCounts(config.modelTypeConfigs).image > 0" class="text-xs px-2 py-1 rounded bg-(--ui-bg-muted) text-(--ui-text-muted)">
-            🎨 {{ getModelCounts(config.modelTypeConfigs).image }}
+          <span v-if="getModelCounts(upstream.aimodels).image > 0" class="text-xs px-2 py-1 rounded bg-(--ui-bg-muted) text-(--ui-text-muted)">
+            🎨 {{ getModelCounts(upstream.aimodels).image }}
           </span>
-          <span v-if="getModelCounts(config.modelTypeConfigs).chat > 0" class="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
-            💬 {{ getModelCounts(config.modelTypeConfigs).chat }}
+          <span v-if="getModelCounts(upstream.aimodels).chat > 0" class="text-xs px-2 py-1 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+            💬 {{ getModelCounts(upstream.aimodels).chat }}
           </span>
         </div>
 
-        <!-- 底部操作 -->
-        <div class="mt-auto pt-3 flex justify-end" @click.stop>
-          <UButton v-if="!config.isDefault" size="xs" variant="ghost" color="neutral" @click="handleSetDefault(config.id)">
-            设为默认
+        <!-- 平台和余额信息（单行） -->
+        <div class="mt-3 pt-3 border-t border-(--ui-border) flex items-center justify-between" @click.stop>
+          <div class="flex items-center gap-2 text-sm">
+            <template v-if="upstream.upstreamPlatform">
+              <span class="text-(--ui-text-muted)">{{ platformLabels[upstream.upstreamPlatform] || upstream.upstreamPlatform }}</span>
+              <span class="text-(--ui-text-dimmed)">·</span>
+              <span class="text-(--ui-text)">{{ formatQuota(upstream.upstreamInfo?.quota) }}</span>
+            </template>
+            <span v-else class="text-(--ui-text-dimmed)">未配置平台</span>
+          </div>
+          <UButton
+            v-if="upstream.upstreamPlatform"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            :loading="queryingBalanceIds.has(upstream.id)"
+            @click="handleQueryBalance(upstream.id)"
+          >
+            <UIcon name="i-heroicons-arrow-path" class="w-3.5 h-3.5" />
           </UButton>
         </div>
       </div>
     </div>
-
-    <!-- 删除确认 Modal -->
-    <UModal v-model:open="showDeleteConfirm" title="确认删除" description="确定删除此配置？">
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <UButton color="error" @click="confirmDelete">删除</UButton>
-          <UButton variant="outline" color="neutral" @click="showDeleteConfirm = false">取消</UButton>
-        </div>
-      </template>
-    </UModal>
   </SettingsLayout>
 </template>

@@ -4,7 +4,7 @@ definePageMeta({
 })
 
 const { addTask, cleanup, loadTasks } = useTasks()
-const { configs: modelConfigs, loadConfigs } = useModelConfigs()
+const { upstreams, loadUpstreams } = useUpstreams()
 const toast = useToast()
 
 // DrawingPanel 组件引用
@@ -13,10 +13,10 @@ const drawingPanelRef = ref<{ setContent: (prompt: string | null, negativePrompt
 // 页面加载时获取数据
 onMounted(() => {
   loadTasks()
-  loadConfigs()
+  loadUpstreams()
 })
 
-async function handleSubmit(prompt: string, negativePrompt: string, images: string[], modelConfigId: number, modelType: string, apiFormat: string, modelName: string) {
+async function handleSubmit(prompt: string, negativePrompt: string, images: string[], upstreamId: number, aimodelId: number, modelType: string, apiFormat: string, modelName: string) {
   try {
     const result = await $fetch<{ success: boolean; taskId: number; message: string }>('/api/tasks', {
       method: 'POST',
@@ -25,7 +25,8 @@ async function handleSubmit(prompt: string, negativePrompt: string, images: stri
         negativePrompt,
         images,
         type: apiFormat === 'mj-proxy' && images.length > 0 && !prompt ? 'blend' : 'imagine',
-        modelConfigId,
+        upstreamId,
+        aimodelId,
         modelType,
         apiFormat,
         modelName,
@@ -67,7 +68,7 @@ onUnmounted(() => {
   <div class="h-[calc(100vh-3.5rem)] flex flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
     <!-- 绘图面板 -->
     <div class="flex-shrink-0 border-b lg:border-b-0 lg:border-r border-(--ui-border) p-4 lg:w-[380px] lg:overflow-y-auto">
-      <DrawingWorkbench ref="drawingPanelRef" :model-configs="modelConfigs" @submit="handleSubmit" />
+      <DrawingWorkbench ref="drawingPanelRef" :upstreams="upstreams" @submit="handleSubmit" />
     </div>
 
     <!-- 任务列表 -->

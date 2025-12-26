@@ -13,12 +13,12 @@ export type {
   MessageMark,
   MessageStatus,
   MessageFile,
-  ModelTypeConfig,
   ApiKeyConfig,
-  BalanceApiType,
+  UpstreamPlatform,
+  UpstreamInfo,
 } from '../../app/shared/types'
 
-import type { ModelType, ApiFormat, ModelTypeConfig, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, BalanceApiType } from '../../app/shared/types'
+import type { ModelCategory, ModelType, ApiFormat, TaskStatus, MessageRole, MessageMark, MessageStatus, MessageFile, ApiKeyConfig, UpstreamPlatform, UpstreamInfo } from '../../app/shared/types'
 
 // 用户表
 export const users = sqliteTable('users', {
@@ -33,33 +33,50 @@ export const users = sqliteTable('users', {
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 
-// 模型配置表（用户级别）
-export const modelConfigs = sqliteTable('model_configs', {
+// 上游配置表（用户级别）- 原 model_configs
+export const upstreams = sqliteTable('upstreams', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id').notNull(),
   name: text('name').notNull(), // 上游名称，用户自定义，如 "我的MJ", "公司API"
   baseUrl: text('base_url').notNull(), // API请求前缀
-  apiKey: text('api_key').notNull(), // API密钥（保留兼容旧数据）
+  apiKey: text('api_key').notNull(), // API密钥（主Key）
   apiKeys: text('api_keys', { mode: 'json' }).$type<ApiKeyConfig[]>(), // 多Key配置
-  modelTypeConfigs: text('model_type_configs', { mode: 'json' }).$type<ModelTypeConfig[]>().notNull(), // 模型类型配置数组
   remark: text('remark'), // 备注说明
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // 是否默认
-  balanceApiType: text('balance_api_type').$type<BalanceApiType>(), // 余额查询 API 类型
-  balanceApiKey: text('balance_api_key'), // 余额查询使用的 API Key（可选，默认使用第一个 key）
+  upstreamPlatform: text('upstream_platform').$type<UpstreamPlatform>(), // 上游平台类型（用于余额查询）
+  userApiKey: text('user_api_key'), // 用户在该平台的 Key（用于余额查询等）
+  upstreamInfo: text('upstream_info', { mode: 'json' }).$type<UpstreamInfo>(), // 上游信息缓存（余额、用户信息等）
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
 
-export type ModelConfig = typeof modelConfigs.$inferSelect
-export type NewModelConfig = typeof modelConfigs.$inferInsert
+export type Upstream = typeof upstreams.$inferSelect
+export type NewUpstream = typeof upstreams.$inferInsert
 
-// 任务表（TaskStatus 类型已从 shared/types 导入）
+// AI 模型表（上游的子表）- 原 model_type_configs JSON 字段
+export const aimodels = sqliteTable('aimodels', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  upstreamId: integer('upstream_id').notNull(), // 关联上游配置
+  category: text('category').$type<ModelCategory>().notNull(), // 模型分类：image | chat
+  modelType: text('model_type').$type<ModelType>().notNull(), // 界面显示的模型类型
+  apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 实际请求时使用的 API 格式
+  modelName: text('model_name').notNull(), // 发送给上游的模型标识符
+  estimatedTime: integer('estimated_time').notNull().default(60), // 预计时间（秒）
+  keyName: text('key_name').notNull().default('default'), // 使用的 Key 名称
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+})
+
+export type Aimodel = typeof aimodels.$inferSelect
+export type NewAimodel = typeof aimodels.$inferInsert
+
+// 任务表
 export const tasks = sqliteTable('tasks', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: integer('user_id').notNull().default(1),
-  modelConfigId: integer('model_config_id').notNull(), // 关联模型配置
-  modelType: text('model_type').$type<ModelType>().notNull(), // 实际使用的模型类型
-  apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 使用的请求格式
-  modelName: text('model_name'), // 实际使用的模型名称
+  upstreamId: integer('upstream_id').notNull(), // 关联上游配置
+  aimodelId: integer('aimodel_id').notNull(), // 关联 AI 模型
+  modelType: text('model_type').$type<ModelType>().notNull(), // 实际使用的模型类型（冗余，便于查询）
+  apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 使用的请求格式（冗余，便于查询）
+  modelName: text('model_name').notNull(), // 实际使用的模型名称（冗余，便于查询）
   prompt: text('prompt'),
   negativePrompt: text('negative_prompt'), // 负面提示词
   images: text('images', { mode: 'json' }).$type<string[]>().default([]),
@@ -88,7 +105,6 @@ export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
 
 // ==================== 对话功能相关表 ====================
-// MessageRole 类型已从 shared/types 导入
 
 // 助手表
 export const assistants = sqliteTable('assistants', {
@@ -98,8 +114,9 @@ export const assistants = sqliteTable('assistants', {
   description: text('description'),
   avatar: text('avatar'), // 头像图片路径
   systemPrompt: text('system_prompt'),
-  modelConfigId: integer('model_config_id'), // 当前使用的上游ID
-  modelName: text('model_name'), // 当前使用的模型名
+  upstreamId: integer('upstream_id'), // 关联上游配置
+  aimodelId: integer('aimodel_id'), // 关联 AI 模型
+  modelName: text('model_name'), // 当前使用的模型名（冗余，便于显示）
   isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
@@ -127,8 +144,9 @@ export const messages = sqliteTable('messages', {
   role: text('role').$type<MessageRole>().notNull(),
   content: text('content').notNull(),
   files: text('files', { mode: 'json' }).$type<MessageFile[]>(), // 附件文件列表
-  modelConfigId: integer('model_config_id'), // 使用的上游ID，仅assistant消息
-  modelName: text('model_name'), // 使用的模型名，仅assistant消息
+  upstreamId: integer('upstream_id'), // 关联上游配置，仅 assistant 消息
+  aimodelId: integer('aimodel_id'), // 关联 AI 模型，仅 assistant 消息
+  modelName: text('model_name'), // 使用的模型名（冗余，便于显示），仅 assistant 消息
   mark: text('mark').$type<MessageMark>(), // 消息标记：error=错误，compress-request=压缩请求，compress-response=压缩响应
   status: text('status').$type<MessageStatus>(), // AI 消息状态：created/pending/streaming/completed/stopped/failed
   sortId: integer('sort_id'), // 排序ID，用于压缩后消息重排序

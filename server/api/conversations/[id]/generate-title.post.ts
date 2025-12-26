@@ -1,7 +1,8 @@
 // POST /api/conversations/[id]/generate-title - AI 智能生成对话标题
 import { useConversationService } from '../../../services/conversation'
 import { useAssistantService } from '../../../services/assistant'
-import { useModelConfigService } from '../../../services/modelConfig'
+import { useUpstreamService } from '../../../services/upstream'
+import { useAimodelService } from '../../../services/aimodel'
 import { useUserSettingsService } from '../../../services/userSettings'
 import { createChatService } from '../../../services/chat'
 import { createClaudeChatService } from '../../../services/claude'
@@ -44,15 +45,23 @@ export default defineEventHandler(async (event) => {
   const assistantService = useAssistantService()
   const assistant = await assistantService.getById(result.conversation.assistantId)
 
-  if (!assistant || !assistant.modelConfigId || !assistant.modelName) {
+  if (!assistant || !assistant.upstreamId || !assistant.aimodelId || !assistant.modelName) {
     throw createError({ statusCode: 400, message: '请先为助手配置模型' })
   }
 
-  // 获取模型配置
-  const modelConfigService = useModelConfigService()
-  const modelConfig = await modelConfigService.getById(assistant.modelConfigId)
+  // 获取上游配置
+  const upstreamService = useUpstreamService()
+  const upstream = await upstreamService.getByIdSimple(assistant.upstreamId)
 
-  if (!modelConfig) {
+  if (!upstream) {
+    throw createError({ statusCode: 404, message: '上游配置不存在' })
+  }
+
+  // 获取 AI 模型配置
+  const aimodelService = useAimodelService()
+  const aimodel = await aimodelService.getById(assistant.aimodelId)
+
+  if (!aimodel) {
     throw createError({ statusCode: 404, message: '模型配置不存在' })
   }
 
@@ -84,17 +93,14 @@ export default defineEventHandler(async (event) => {
 
 ${contextMessages.join('\n\n')}`
 
-  // 从 modelTypeConfigs 中查找对应模型的 apiFormat
-  const modelTypeConfig = modelConfig.modelTypeConfigs?.find(
-    mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
-  )
-  const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
-  const keyName = modelTypeConfig?.keyName
+  // 使用 aimodel 中的 apiFormat 和 keyName
+  const apiFormat = aimodel.apiFormat
+  const keyName = aimodel.keyName
 
   // 根据 apiFormat 创建对应的聊天服务
   const chatService = apiFormat === 'claude'
-    ? createClaudeChatService(modelConfig, keyName)
-    : createChatService(modelConfig, keyName)
+    ? createClaudeChatService(upstream, keyName)
+    : createChatService(upstream, keyName)
 
   // 构建日志上下文
   const logContext: LogContext = {

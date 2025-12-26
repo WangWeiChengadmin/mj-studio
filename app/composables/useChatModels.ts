@@ -1,24 +1,22 @@
 // 对话模型配置管理
-import type { ModelConfig, ModelTypeConfig } from './useTasks'
+import type { Upstream, Aimodel } from './useUpstreams'
+import { IMAGE_MODEL_TYPES } from '../shared/constants'
 
 export function useChatModels() {
-  const { configs, loadConfigs } = useModelConfigs()
+  const { upstreams, loadUpstreams } = useUpstreams()
 
   // 获取所有对话模型配置
   const chatModelConfigs = computed(() => {
     const result: Array<{
-      config: ModelConfig
-      model: ModelTypeConfig
+      upstream: Upstream
+      aimodel: Aimodel
     }> = []
 
-    for (const config of configs.value) {
-      for (const model of config.modelTypeConfigs || []) {
-        // 筛选对话模型（category 为 'chat' 或未定义但 apiFormat 为 'openai-chat' 的非绘图模型）
-        const isChat = model.category === 'chat' ||
-          (!model.category && model.apiFormat === 'openai-chat' && !isImageModel(model.modelType))
-
-        if (isChat) {
-          result.push({ config, model })
+    for (const upstream of upstreams.value) {
+      for (const aimodel of upstream.aimodels || []) {
+        // 筛选对话模型（category 为 'chat'）
+        if (aimodel.category === 'chat') {
+          result.push({ upstream, aimodel })
         }
       }
     }
@@ -26,19 +24,17 @@ export function useChatModels() {
     return result
   })
 
-  // 判断是否是绘图模型
-  function isImageModel(modelType: string): boolean {
-    const imageModels = [
-      'midjourney', 'gemini', 'flux', 'dalle', 'doubao',
-      'gpt4o-image', 'grok-image', 'qwen-image'
-    ]
-    return imageModels.includes(modelType)
+  // 根据上游ID和模型ID获取对话模型
+  function getChatModel(upstreamId: number, aimodelId: number) {
+    return chatModelConfigs.value.find(
+      item => item.upstream.id === upstreamId && item.aimodel.id === aimodelId
+    )
   }
 
-  // 根据配置ID和模型名获取对话模型
-  function getChatModel(configId: number, modelName: string) {
+  // 根据上游ID和模型名获取对话模型
+  function getChatModelByName(upstreamId: number, modelName: string) {
     return chatModelConfigs.value.find(
-      item => item.config.id === configId && item.model.modelName === modelName
+      item => item.upstream.id === upstreamId && item.aimodel.modelName === modelName
     )
   }
 
@@ -49,8 +45,9 @@ export function useChatModels() {
 
   return {
     chatModelConfigs,
-    loadConfigs,
+    loadUpstreams,
     getChatModel,
+    getChatModelByName,
     defaultChatModel,
   }
 }

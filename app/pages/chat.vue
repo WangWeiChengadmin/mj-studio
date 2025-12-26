@@ -62,18 +62,18 @@ const {
 // 当前对话的输入状态
 const currentInputState = computed(() => getInputState(currentConversationId.value))
 
-// 模型配置
-const { configs: modelConfigs, loadConfigs } = useModelConfigs()
+// 上游配置
+const { upstreams, loadUpstreams } = useUpstreams()
 
 // 当前助手的预计首字时长（秒）
 const currentEstimatedTime = computed(() => {
-  if (!currentAssistant.value?.modelConfigId || !currentAssistant.value?.modelName) {
+  if (!currentAssistant.value?.upstreamId || !currentAssistant.value?.aimodelId) {
     return null
   }
-  const config = modelConfigs.value.find(c => c.id === currentAssistant.value?.modelConfigId)
-  if (!config) return null
-  const mtc = config.modelTypeConfigs?.find(m => m.modelName === currentAssistant.value?.modelName)
-  return mtc?.estimatedTime ?? null
+  const upstream = upstreams.value.find(u => u.id === currentAssistant.value?.upstreamId)
+  if (!upstream) return null
+  const aimodel = upstream.aimodels?.find(m => m.id === currentAssistant.value?.aimodelId)
+  return aimodel?.estimatedTime ?? null
 })
 
 // 助手编辑弹窗
@@ -98,7 +98,7 @@ const initialized = ref(false)
 async function initializePage() {
   await Promise.all([
     loadAssistants(),
-    loadConfigs(),
+    loadUpstreams(),
   ])
 
   // 从 URL 恢复状态，无参数则使用默认助手
@@ -382,12 +382,18 @@ async function handleCompress() {
 }
 
 // 更新助手模型配置
-async function handleUpdateModel(configId: number, modelName: string) {
+async function handleUpdateModel(upstreamId: number, aimodelId: number) {
   if (!currentAssistant.value) return
+
+  // 获取模型名称
+  const upstream = upstreams.value.find(u => u.id === upstreamId)
+  const aimodel = upstream?.aimodels?.find(m => m.id === aimodelId)
+  const modelName = aimodel?.modelName || null
 
   try {
     await updateAssistant(currentAssistant.value.id, {
-      modelConfigId: configId,
+      upstreamId,
+      aimodelId,
       modelName,
     })
   } catch (error: any) {
@@ -461,9 +467,9 @@ onUnmounted(() => {
 
         <!-- 输入框 -->
         <ChatMessageInput
-          :model-configs="modelConfigs"
-          :current-config-id="currentAssistant?.modelConfigId || null"
-          :current-model-name="currentAssistant?.modelName || null"
+          :upstreams="upstreams"
+          :current-upstream-id="currentAssistant?.upstreamId || null"
+          :current-aimodel-id="currentAssistant?.aimodelId || null"
           :disabled="!currentAssistant"
           :is-streaming="isStreaming"
           :messages="messages"
@@ -546,7 +552,7 @@ onUnmounted(() => {
     <ChatAssistantEditor
       v-model:open="showAssistantEditor"
       :assistant="editingAssistant"
-      :model-configs="modelConfigs"
+      :upstreams="upstreams"
       @save="handleSaveAssistant"
     />
   </div>

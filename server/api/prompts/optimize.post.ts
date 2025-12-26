@@ -1,6 +1,7 @@
 // POST /api/prompts/optimize - AI 优化绘图提示词
 import { createChatService } from '../../services/chat'
-import { useModelConfigService } from '../../services/modelConfig'
+import { useUpstreamService } from '../../services/upstream'
+import { useAimodelService } from '../../services/aimodel'
 
 const OPTIMIZE_SYSTEM_PROMPT = `你是一个专业的 AI 绘图提示词优化专家。你的任务是将用户提供的简单描述优化为更详细、更专业的绘图提示词。
 
@@ -19,7 +20,7 @@ export default defineEventHandler(async (event) => {
   await requireAuth(event)
 
   const body = await readBody(event)
-  const { prompt, configId, modelName } = body
+  const { prompt, upstreamId, aimodelId, modelName } = body
 
   if (!prompt?.trim()) {
     throw createError({
@@ -28,18 +29,28 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!configId || !modelName) {
+  if (!upstreamId || !aimodelId || !modelName) {
     throw createError({
       statusCode: 400,
       message: '请先在设置中配置 AI 优化模型',
     })
   }
 
-  const modelConfigService = useModelConfigService()
+  const upstreamService = useUpstreamService()
+  const aimodelService = useAimodelService()
 
-  // 获取模型配置
-  const config = await modelConfigService.getById(configId)
-  if (!config) {
+  // 获取上游配置
+  const upstream = await upstreamService.getByIdSimple(upstreamId)
+  if (!upstream) {
+    throw createError({
+      statusCode: 404,
+      message: '上游配置不存在',
+    })
+  }
+
+  // 获取 AI 模型配置
+  const aimodel = await aimodelService.getById(aimodelId)
+  if (!aimodel) {
     throw createError({
       statusCode: 404,
       message: '模型配置不存在',
@@ -47,13 +58,10 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // 从 modelTypeConfigs 中查找对应模型的 keyName
-    const modelTypeConfig = config.modelTypeConfigs?.find(
-      mtc => mtc.modelName === modelName && mtc.category === 'chat'
-    )
-    const keyName = modelTypeConfig?.keyName
+    // 使用 aimodel 中的 keyName
+    const keyName = aimodel.keyName
 
-    const chatService = createChatService(config, keyName)
+    const chatService = createChatService(upstream, keyName)
     const result = await chatService.chat(
       modelName,
       OPTIMIZE_SYSTEM_PROMPT,

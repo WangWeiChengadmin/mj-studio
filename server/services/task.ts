@@ -1,13 +1,14 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
-import { tasks, modelConfigs, type Task, type TaskStatus, type ModelConfig, type ModelType, type ApiFormat, type ModelTypeConfig } from '../database/schema'
+import { tasks, upstreams, aimodels, type Task, type TaskStatus, type Upstream, type Aimodel, type ModelType, type ApiFormat } from '../database/schema'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
 import { createDalleService } from './dalle'
 import { createOpenAIChatService } from './openaiChat'
 import { createKoukoutuService } from './koukoutu'
-import { useModelConfigService } from './modelConfig'
+import { useUpstreamService } from './upstream'
+import { useAimodelService } from './aimodel'
 import { downloadFile, saveBase64Image, getFileUrl, readFileAsBase64 } from './file'
 import { classifyFetchError, classifyError, ERROR_MESSAGES } from './errorClassifier'
 import { logResponse } from './logger'
@@ -28,13 +29,12 @@ function isAbortError(error: any): boolean {
 }
 
 export function useTaskService() {
-  const modelConfigService = useModelConfigService()
+  const upstreamService = useUpstreamService()
+  const aimodelService = useAimodelService()
 
   // 获取配置的 API Key（支持多 Key）
-  function getApiKey(config: ModelConfig, task?: Task): string {
-    // 从任务的 modelTypeConfig 获取 keyName
-    const mtc = config.modelTypeConfigs?.find(m => m.modelName === task?.modelName)
-    return modelConfigService.getApiKey(config, mtc?.keyName)
+  function getApiKey(upstream: Upstream, aimodel?: Aimodel): string {
+    return upstreamService.getApiKey(upstream, aimodel?.keyName)
   }
 
   // 将本地 URL 数组转换为 Base64 数组
@@ -51,10 +51,11 @@ export function useTaskService() {
   // 创建任务（仅保存到数据库）
   async function createTask(data: {
     userId: number
-    modelConfigId: number
+    upstreamId: number
+    aimodelId: number
     modelType: ModelType
     apiFormat: ApiFormat
-    modelName?: string
+    modelName: string
     prompt?: string
     negativePrompt?: string
     images?: string[]
@@ -65,10 +66,11 @@ export function useTaskService() {
   }): Promise<Task> {
     const [task] = await db.insert(tasks).values({
       userId: data.userId,
-      modelConfigId: data.modelConfigId,
+      upstreamId: data.upstreamId,
+      aimodelId: data.aimodelId,
       modelType: data.modelType,
       apiFormat: data.apiFormat,
-      modelName: data.modelName ?? null,
+      modelName: data.modelName,
       prompt: data.prompt ?? null,
       negativePrompt: data.negativePrompt ?? null,
       images: data.images ?? [],
@@ -96,6 +98,8 @@ export function useTaskService() {
     imageUrl: string | null
     error: string | null
     buttons: Task['buttons']
+    isBlurred: boolean
+    createdAt: Date
   }>): Promise<Task | undefined> {
     const [updated] = await db.update(tasks)
       .set({ ...data, updatedAt: new Date() })
@@ -111,53 +115,57 @@ export function useTaskService() {
     })
   }
 
-  // 获取任务及其模型配置（内部使用，返回完整配置）
-  async function getTaskWithConfig(id: number): Promise<{ task: Task; config: ModelConfig } | undefined> {
+  // 获取任务及其上游配置和模型（内部使用）
+  async function getTaskWithConfig(id: number): Promise<{ task: Task; upstream: Upstream; aimodel: Aimodel } | undefined> {
     const task = await getTask(id)
     if (!task) return undefined
 
-    const config = await db.query.modelConfigs.findFirst({
-      where: eq(modelConfigs.id, task.modelConfigId),
+    const upstream = await db.query.upstreams.findFirst({
+      where: eq(upstreams.id, task.upstreamId),
     })
-    if (!config) return undefined
+    if (!upstream) return undefined
 
-    return { task, config }
+    const aimodel = await db.query.aimodels.findFirst({
+      where: eq(aimodels.id, task.aimodelId),
+    })
+    if (!aimodel) return undefined
+
+    return { task, upstream, aimodel }
   }
 
-  // 获取任务及精简的模型配置（用于 API 返回）
-  async function getTaskWithSummary(id: number): Promise<{ task: Task; modelConfig: TaskModelConfigSummary } | undefined> {
+  // 获取任务及精简的上游配置（用于 API 返回）
+  async function getTaskWithSummary(id: number): Promise<{ task: Task; upstream: TaskUpstreamSummary } | undefined> {
     const result = await getTaskWithConfig(id)
     if (!result) return undefined
 
     return {
       task: result.task,
-      modelConfig: getConfigSummary(result.config, result.task.modelName),
+      upstream: getUpstreamSummary(result.upstream, result.aimodel),
     }
   }
 
-  // 精简的模型配置信息（用于任务列表/详情）
-  type TaskModelConfigSummary = {
+  // 精简的上游配置信息（用于任务列表/详情）
+  type TaskUpstreamSummary = {
     name: string
     estimatedTime: number | null
   }
 
   // 从完整配置中提取精简信息
-  function getConfigSummary(config: ModelConfig, modelName: string | null): TaskModelConfigSummary {
-    const mtc = config.modelTypeConfigs.find(c => c.modelName === modelName)
+  function getUpstreamSummary(upstream: Upstream, aimodel: Aimodel): TaskUpstreamSummary {
     return {
-      name: config.name,
-      estimatedTime: mtc?.estimatedTime ?? null,
+      name: upstream.name,
+      estimatedTime: aimodel?.estimatedTime ?? null,
     }
   }
 
-  // 获取用户任务列表（包含精简的模型配置信息，支持分页和筛选）
+  // 获取用户任务列表（包含精简的上游配置信息，支持分页和筛选）
   async function listTasks(userId: number, options: {
     page?: number
     pageSize?: number
     sourceType?: 'workbench' | 'chat' | 'all'
     keyword?: string
   } = {}): Promise<{
-    tasks: Array<Task & { modelConfig?: TaskModelConfigSummary }>
+    tasks: Array<Task & { upstream?: TaskUpstreamSummary }>
     total: number
     page: number
     pageSize: number
@@ -202,22 +210,34 @@ export function useTaskService() {
       offset: (page - 1) * pageSize,
     })
 
-    // 获取所有相关的模型配置
-    const configIds = [...new Set(taskList.map(t => t.modelConfigId))]
-    const configMap = new Map<number, ModelConfig>()
-    for (const id of configIds) {
-      const config = await db.query.modelConfigs.findFirst({
-        where: eq(modelConfigs.id, id),
+    // 获取所有相关的上游配置和模型
+    const upstreamIds = [...new Set(taskList.map(t => t.upstreamId))]
+    const aimodelIds = [...new Set(taskList.map(t => t.aimodelId))]
+
+    const upstreamMap = new Map<number, Upstream>()
+    const aimodelMap = new Map<number, Aimodel>()
+
+    for (const id of upstreamIds) {
+      const upstream = await db.query.upstreams.findFirst({
+        where: eq(upstreams.id, id),
       })
-      if (config) configMap.set(id, config)
+      if (upstream) upstreamMap.set(id, upstream)
+    }
+
+    for (const id of aimodelIds) {
+      const aimodel = await db.query.aimodels.findFirst({
+        where: eq(aimodels.id, id),
+      })
+      if (aimodel) aimodelMap.set(id, aimodel)
     }
 
     return {
       tasks: taskList.map(task => {
-        const config = configMap.get(task.modelConfigId)
+        const upstream = upstreamMap.get(task.upstreamId)
+        const aimodel = aimodelMap.get(task.aimodelId)
         return {
           ...task,
-          modelConfig: config ? getConfigSummary(config, task.modelName) : undefined,
+          upstream: upstream && aimodel ? getUpstreamSummary(upstream, aimodel) : undefined,
         }
       }),
       total,
@@ -237,7 +257,7 @@ export function useTaskService() {
 
   // 获取回收站任务列表（支持分页）
   async function listTrashTasks(userId: number, options: { page?: number; pageSize?: number } = {}): Promise<{
-    tasks: Array<Task & { modelConfig?: TaskModelConfigSummary }>
+    tasks: Array<Task & { upstream?: TaskUpstreamSummary }>
     total: number
     page: number
     pageSize: number
@@ -259,22 +279,34 @@ export function useTaskService() {
       offset: (page - 1) * pageSize,
     })
 
-    // 获取所有相关的模型配置
-    const configIds = [...new Set(taskList.map(t => t.modelConfigId))]
-    const configMap = new Map<number, ModelConfig>()
-    for (const id of configIds) {
-      const config = await db.query.modelConfigs.findFirst({
-        where: eq(modelConfigs.id, id),
+    // 获取所有相关的上游配置和模型
+    const upstreamIds = [...new Set(taskList.map(t => t.upstreamId))]
+    const aimodelIds = [...new Set(taskList.map(t => t.aimodelId))]
+
+    const upstreamMap = new Map<number, Upstream>()
+    const aimodelMap = new Map<number, Aimodel>()
+
+    for (const id of upstreamIds) {
+      const upstream = await db.query.upstreams.findFirst({
+        where: eq(upstreams.id, id),
       })
-      if (config) configMap.set(id, config)
+      if (upstream) upstreamMap.set(id, upstream)
+    }
+
+    for (const id of aimodelIds) {
+      const aimodel = await db.query.aimodels.findFirst({
+        where: eq(aimodels.id, id),
+      })
+      if (aimodel) aimodelMap.set(id, aimodel)
     }
 
     return {
       tasks: taskList.map(task => {
-        const config = configMap.get(task.modelConfigId)
+        const upstream = upstreamMap.get(task.upstreamId)
+        const aimodel = aimodelMap.get(task.aimodelId)
         return {
           ...task,
-          modelConfig: config ? getConfigSummary(config, task.modelName) : undefined,
+          upstream: upstream && aimodel ? getUpstreamSummary(upstream, aimodel) : undefined,
         }
       }),
       total,
@@ -316,18 +348,14 @@ export function useTaskService() {
   async function submitTask(taskId: number): Promise<void> {
     const data = await getTaskWithConfig(taskId)
     if (!data) {
-      throw new Error('任务或模型配置不存在')
+      throw new Error('任务或上游配置不存在')
     }
 
-    const { task, config } = data
-
-    // 获取 keyName 用于日志
-    const mtc = config.modelTypeConfigs?.find(m => m.modelName === task.modelName)
-    const keyName = mtc?.keyName || 'default'
+    const { task, upstream, aimodel } = data
 
     // 输出任务提交日志
     const promptPreview = task.prompt ? (task.prompt.length > 30 ? task.prompt.slice(0, 30) + '...' : task.prompt) : '(无提示词)'
-    console.log(`[Task] 提交 | #${taskId} ${task.modelType}/${task.apiFormat} | 上游:${config.name} 模型:${task.modelName || '默认'} Key:${keyName} | ${promptPreview}`)
+    console.log(`[Task] 提交 | #${taskId} ${task.modelType}/${task.apiFormat} | 上游:${upstream.name} 模型:${task.modelName} Key:${aimodel.keyName} | ${promptPreview}`)
 
     // 更新状态为提交中
     await updateTask(taskId, { status: 'submitting' })
@@ -340,19 +368,19 @@ export function useTaskService() {
       // 根据apiFormat选择不同的处理方式
       switch (task.apiFormat) {
         case 'mj-proxy':
-          await submitToMJ(task, config)
+          await submitToMJ(task, upstream, aimodel)
           break
         case 'gemini':
-          await submitToGemini(task, config, controller.signal)
+          await submitToGemini(task, upstream, aimodel, controller.signal)
           break
         case 'dalle':
-          await submitToDalle(task, config, controller.signal)
+          await submitToDalle(task, upstream, aimodel, controller.signal)
           break
         case 'openai-chat':
-          await submitToOpenAIChat(task, config, controller.signal)
+          await submitToOpenAIChat(task, upstream, aimodel, controller.signal)
           break
         case 'koukoutu':
-          await submitToKoukoutu(task, config)
+          await submitToKoukoutu(task, upstream, aimodel)
           break
         default:
           await updateTask(taskId, {
@@ -367,7 +395,7 @@ export function useTaskService() {
   }
 
   // 处理同步API的结果
-  async function handleSyncResult(task: Task, config: ModelConfig, result: GenerateResult): Promise<void> {
+  async function handleSyncResult(task: Task, upstream: Upstream, aimodel: Aimodel, result: GenerateResult): Promise<void> {
     if (!result.success) {
       await updateTask(task.id, {
         status: 'failed',
@@ -402,12 +430,12 @@ export function useTaskService() {
     })
 
     // 更新预计时间
-    await updateEstimatedTime(config, task, task.createdAt)
+    await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
   }
 
   // 提交到Gemini（同步API）
-  async function submitToGemini(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
-    const gemini = createGeminiService(config.baseUrl, getApiKey(config, task))
+  async function submitToGemini(task: Task, upstream: Upstream, aimodel: Aimodel, signal?: AbortSignal): Promise<void> {
+    const gemini = createGeminiService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES.gemini
 
     try {
@@ -418,7 +446,7 @@ export function useTaskService() {
       } else {
         result = await gemini.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
-      await handleSyncResult(task, config, result)
+      await handleSyncResult(task, upstream, aimodel, result)
     } catch (error: any) {
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
@@ -432,8 +460,8 @@ export function useTaskService() {
   }
 
   // 提交到DALL-E（同步API）
-  async function submitToDalle(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
-    const dalle = createDalleService(config.baseUrl, getApiKey(config, task))
+  async function submitToDalle(task: Task, upstream: Upstream, aimodel: Aimodel, signal?: AbortSignal): Promise<void> {
+    const dalle = createDalleService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES.dalle
 
     try {
@@ -444,7 +472,7 @@ export function useTaskService() {
       } else {
         result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal, task.negativePrompt ?? undefined)
       }
-      await handleSyncResult(task, config, result)
+      await handleSyncResult(task, upstream, aimodel, result)
     } catch (error: any) {
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
@@ -458,8 +486,8 @@ export function useTaskService() {
   }
 
   // 提交到OpenAI Chat（同步API）
-  async function submitToOpenAIChat(task: Task, config: ModelConfig, signal?: AbortSignal): Promise<void> {
-    const openai = createOpenAIChatService(config.baseUrl, getApiKey(config, task))
+  async function submitToOpenAIChat(task: Task, upstream: Upstream, aimodel: Aimodel, signal?: AbortSignal): Promise<void> {
+    const openai = createOpenAIChatService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES['gpt4o-image']
 
     try {
@@ -470,7 +498,7 @@ export function useTaskService() {
       } else {
         result = await openai.generateImage(task.prompt ?? '', modelName, task.id, signal)
       }
-      await handleSyncResult(task, config, result)
+      await handleSyncResult(task, upstream, aimodel, result)
     } catch (error: any) {
       if (isAbortError(error)) {
         console.log(`[Task ${task.id}] 请求已被取消`)
@@ -484,7 +512,7 @@ export function useTaskService() {
   }
 
   // 提交到抠抠图 API（异步轮询）
-  async function submitToKoukoutu(task: Task, config: ModelConfig): Promise<void> {
+  async function submitToKoukoutu(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
     // 抠抠图必须有参考图
     if (!task.images || task.images.length === 0) {
       await updateTask(task.id, {
@@ -494,7 +522,7 @@ export function useTaskService() {
       return
     }
 
-    const koukoutu = createKoukoutuService(config.baseUrl, getApiKey(config, task))
+    const koukoutu = createKoukoutuService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const modelKey = task.modelName || 'background-removal'
 
     try {
@@ -523,8 +551,8 @@ export function useTaskService() {
   }
 
   // 提交到MJ API（异步执行）
-  async function submitToMJ(task: Task, config: ModelConfig): Promise<void> {
-    const mj = createMJService(config.baseUrl, getApiKey(config, task))
+  async function submitToMJ(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<void> {
+    const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
 
     try {
       let result
@@ -561,25 +589,25 @@ export function useTaskService() {
     const data = await getTaskWithConfig(taskId)
     if (!data) return undefined
 
-    const { task, config } = data
+    const { task, upstream, aimodel } = data
 
     // 只有 MJ 和抠抠图需要轮询
     if (task.apiFormat === 'koukoutu') {
-      return await syncKoukoutuStatus(task, config)
+      return await syncKoukoutuStatus(task, upstream, aimodel)
     } else if (task.apiFormat === 'mj-proxy') {
-      return await syncMJStatus(task, config)
+      return await syncMJStatus(task, upstream, aimodel)
     }
 
     return task
   }
 
   // 同步抠抠图任务状态
-  async function syncKoukoutuStatus(task: Task, config: ModelConfig): Promise<Task | undefined> {
+  async function syncKoukoutuStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
     if (!task.upstreamTaskId) {
       return task
     }
 
-    const koukoutu = createKoukoutuService(config.baseUrl, getApiKey(config, task))
+    const koukoutu = createKoukoutuService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const logPrefix = `[Task] #${task.id}`
 
     try {
@@ -596,7 +624,7 @@ export function useTaskService() {
           if (fileName) {
             imageUrl = getFileUrl(fileName)
           }
-          await updateEstimatedTime(config, task, task.createdAt)
+          await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
         }
       } else if (result.data.state === -1) {
         // 失败
@@ -617,12 +645,12 @@ export function useTaskService() {
   }
 
   // 同步 MJ 任务状态
-  async function syncMJStatus(task: Task, config: ModelConfig): Promise<Task | undefined> {
+  async function syncMJStatus(task: Task, upstream: Upstream, aimodel: Aimodel): Promise<Task | undefined> {
     if (!task.upstreamTaskId) {
       return task
     }
 
-    const mj = createMJService(config.baseUrl, getApiKey(config, task))
+    const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const logPrefix = `[Task] #${task.id}`
 
     try {
@@ -648,7 +676,7 @@ export function useTaskService() {
         // 下载失败时保留原始URL
 
         // 更新预计时间
-        await updateEstimatedTime(config, task, task.createdAt)
+        await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
       }
 
       // 对 MJ 的 failReason 进行分类
@@ -682,27 +710,15 @@ export function useTaskService() {
   }
 
   // 更新预计时间
-  async function updateEstimatedTime(config: ModelConfig, task: Task, startTime: Date): Promise<void> {
+  async function updateEstimatedTime(upstream: Upstream, aimodel: Aimodel, task: Task, startTime: Date): Promise<void> {
     try {
       const endTime = new Date()
       const actualTime = Math.round((endTime.getTime() - startTime.getTime()) / 1000)
 
-      // 找到对应的模型类型配置并更新预计时间
-      const modelTypeConfigs = [...config.modelTypeConfigs]
-      const index = modelTypeConfigs.findIndex(mtc => mtc.modelType === task.modelType)
+      // 更新 aimodel 的预计时间
+      await aimodelService.updateEstimatedTime(upstream.id, task.modelName, actualTime)
 
-      if (index >= 0) {
-        modelTypeConfigs[index] = {
-          ...modelTypeConfigs[index],
-          estimatedTime: actualTime,
-        }
-
-        await db.update(modelConfigs)
-          .set({ modelTypeConfigs })
-          .where(eq(modelConfigs.id, config.id))
-
-        console.log(`[Task] #${task.id} 更新预计时间 | ${config.name}/${task.modelName || task.modelType}: ${actualTime}s`)
-      }
+      console.log(`[Task] #${task.id} 更新预计时间 | ${upstream.name}/${task.modelName}: ${actualTime}s`)
     } catch (error) {
       console.error('更新预计时间失败:', error)
     }
@@ -715,7 +731,7 @@ export function useTaskService() {
       throw new Error('父任务不存在')
     }
 
-    const { task: parentTask, config } = data
+    const { task: parentTask, upstream, aimodel } = data
 
     if (parentTask.apiFormat !== 'mj-proxy') {
       throw new Error('仅MJ-Proxy格式支持按钮动作')
@@ -728,7 +744,8 @@ export function useTaskService() {
     // 创建新任务
     const [newTask] = await db.insert(tasks).values({
       userId,
-      modelConfigId: parentTask.modelConfigId,
+      upstreamId: parentTask.upstreamId,
+      aimodelId: parentTask.aimodelId,
       modelType: parentTask.modelType,
       apiFormat: parentTask.apiFormat,
       modelName: parentTask.modelName,
@@ -738,7 +755,7 @@ export function useTaskService() {
       status: 'submitting',
     }).returning()
 
-    const mj = createMJService(config.baseUrl, getApiKey(config, task))
+    const mj = createMJService(upstream.baseUrl, getApiKey(upstream, aimodel))
 
     try {
       const result = await mj.action(parentTask.upstreamTaskId, customId, newTask.id)

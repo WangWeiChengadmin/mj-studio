@@ -1,10 +1,8 @@
 // 任务状态管理
+import type { ModelType, ApiFormat } from '../shared/types'
 
-type ModelType = 'midjourney' | 'gemini' | 'flux' | 'dalle' | 'doubao' | 'gpt4o-image' | 'grok-image' | 'qwen-image'
-type ApiFormat = 'mj-proxy' | 'gemini' | 'dalle' | 'openai-chat'
-
-// 精简的模型配置（用于任务列表/详情）
-export interface TaskModelConfigSummary {
+// 精简的上游配置（用于任务列表/详情）
+export interface TaskUpstreamSummary {
   name: string
   estimatedTime: number | null
 }
@@ -13,11 +11,12 @@ export interface TaskModelConfigSummary {
 export interface Task {
   id: number
   userId: number
-  modelConfigId: number
+  upstreamId: number
+  aimodelId: number
   modelType: ModelType
   apiFormat: ApiFormat
-  modelName: string | null
-  modelConfig?: TaskModelConfigSummary // 精简的模型配置
+  modelName: string
+  upstream?: TaskUpstreamSummary // 精简的上游配置
   prompt: string | null
   negativePrompt: string | null
   images: string[]

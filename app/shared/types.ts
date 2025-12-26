@@ -139,15 +139,42 @@ export interface MessageFile {
   size: number
 }
 
-// ==================== API Key 配置 ====================
+// ==================== 上游平台类型 ====================
 
 /**
- * 余额查询 API 类型
+ * 上游平台类型
+ * - 用于标识上游 API 平台，便于余额查询等功能
  * - oneapi: OneAPI/NewAPI 格式，GET /api/user/self
  * - n1n: n1n 格式，GET /api/user/self
  * - yunwu: 云雾格式，暂不支持 API 查询
  */
-export type BalanceApiType = 'oneapi' | 'n1n' | 'yunwu'
+export type UpstreamPlatform = 'oneapi' | 'n1n' | 'yunwu'
+
+/**
+ * 上游信息缓存
+ * - 存储从上游 API 查询到的用户信息
+ * - 使用场景：余额显示、用户信息展示
+ */
+export interface UpstreamInfo {
+  /** 用户 ID */
+  userId?: number
+  /** 用户名 */
+  username?: string
+  /** 显示名称 */
+  displayName?: string
+  /** 邮箱 */
+  email?: string
+  /** 原始配额 */
+  quota?: number
+  /** 已用配额 */
+  usedQuota?: number
+  /** 用户组 */
+  group?: string
+  /** 查询时间 */
+  queriedAt?: string
+}
+
+// ==================== API Key 配置 ====================
 
 /**
  * API Key 配置

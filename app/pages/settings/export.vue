@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { Assistant } from '~/composables/useAssistants'
-import type { ModelConfig } from '~/composables/useTasks'
+import type { Upstream, AimodelInput } from '~/composables/useUpstreams'
 
 const { assistants, loadAssistants, createAssistant } = useAssistants()
-const { configs, loadConfigs, createConfig } = useModelConfigs()
+const { upstreams, loadUpstreams, createUpstream } = useUpstreams()
 const toast = useToast()
 
 // 加载状态
@@ -14,11 +14,11 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 
 // 选中状态
 const selectedAssistantIds = ref<Set<number>>(new Set())
-const selectedConfigIds = ref<Set<number>>(new Set())
+const selectedUpstreamIds = ref<Set<number>>(new Set())
 
 // 加载数据
 onMounted(async () => {
-  await Promise.all([loadAssistants(), loadConfigs()])
+  await Promise.all([loadAssistants(), loadUpstreams()])
   isLoading.value = false
 })
 
@@ -47,43 +47,43 @@ function toggleAllAssistants() {
   }
 }
 
-// 模型配置选择
-const isAllConfigsSelected = computed(() =>
-  configs.value.length > 0 && selectedConfigIds.value.size === configs.value.length
+// 上游配置选择
+const isAllUpstreamsSelected = computed(() =>
+  upstreams.value.length > 0 && selectedUpstreamIds.value.size === upstreams.value.length
 )
-const isSomeConfigsSelected = computed(() =>
-  selectedConfigIds.value.size > 0 && selectedConfigIds.value.size < configs.value.length
+const isSomeUpstreamsSelected = computed(() =>
+  selectedUpstreamIds.value.size > 0 && selectedUpstreamIds.value.size < upstreams.value.length
 )
 
-function toggleConfig(id: number) {
-  if (selectedConfigIds.value.has(id)) {
-    selectedConfigIds.value.delete(id)
+function toggleUpstream(id: number) {
+  if (selectedUpstreamIds.value.has(id)) {
+    selectedUpstreamIds.value.delete(id)
   } else {
-    selectedConfigIds.value.add(id)
+    selectedUpstreamIds.value.add(id)
   }
-  selectedConfigIds.value = new Set(selectedConfigIds.value)
+  selectedUpstreamIds.value = new Set(selectedUpstreamIds.value)
 }
 
-function toggleAllConfigs() {
-  if (isAllConfigsSelected.value) {
-    selectedConfigIds.value = new Set()
+function toggleAllUpstreams() {
+  if (isAllUpstreamsSelected.value) {
+    selectedUpstreamIds.value = new Set()
   } else {
-    selectedConfigIds.value = new Set(configs.value.map(c => c.id))
+    selectedUpstreamIds.value = new Set(upstreams.value.map(u => u.id))
   }
 }
 
 // 导出选中项
 function handleExport() {
   const selectedAssistants = assistants.value.filter(a => selectedAssistantIds.value.has(a.id))
-  const selectedConfigs = configs.value.filter(c => selectedConfigIds.value.has(c.id))
+  const selectedUpstreamsData = upstreams.value.filter(u => selectedUpstreamIds.value.has(u.id))
 
-  if (selectedAssistants.length === 0 && selectedConfigs.length === 0) {
+  if (selectedAssistants.length === 0 && selectedUpstreamsData.length === 0) {
     toast.add({ title: '请先选择要导出的项目', color: 'warning' })
     return
   }
 
   const exportData = {
-    version: 1,
+    version: 2, // 版本号升级，以区分新格式
     exportedAt: new Date().toISOString(),
     assistants: selectedAssistants.map(a => ({
       name: a.name,
@@ -92,13 +92,23 @@ function handleExport() {
       systemPrompt: a.systemPrompt,
       isDefault: a.isDefault,
     })),
-    modelConfigs: selectedConfigs.map(c => ({
-      name: c.name,
-      baseUrl: c.baseUrl,
-      apiKey: c.apiKey,
-      remark: c.remark,
-      isDefault: c.isDefault,
-      modelTypeConfigs: c.modelTypeConfigs,
+    upstreams: selectedUpstreamsData.map(u => ({
+      name: u.name,
+      baseUrl: u.baseUrl,
+      apiKey: u.apiKey,
+      apiKeys: u.apiKeys,
+      remark: u.remark,
+      isDefault: u.isDefault,
+      upstreamPlatform: u.upstreamPlatform,
+      userApiKey: u.userApiKey,
+      aimodels: u.aimodels?.map(m => ({
+        category: m.category,
+        modelType: m.modelType,
+        apiFormat: m.apiFormat,
+        modelName: m.modelName,
+        estimatedTime: m.estimatedTime,
+        keyName: m.keyName,
+      })),
     })),
   }
 
@@ -112,7 +122,7 @@ function handleExport() {
 
   const parts = []
   if (selectedAssistants.length > 0) parts.push(`${selectedAssistants.length} 个助手`)
-  if (selectedConfigs.length > 0) parts.push(`${selectedConfigs.length} 个模型配置`)
+  if (selectedUpstreamsData.length > 0) parts.push(`${selectedUpstreamsData.length} 个上游配置`)
   toast.add({ title: `已导出 ${parts.join('、')}`, color: 'success' })
 }
 
@@ -137,7 +147,7 @@ async function handleImport(event: Event) {
     }
 
     let assistantCount = 0
-    let configCount = 0
+    let upstreamCount = 0
 
     // 导入助手
     if (Array.isArray(data.assistants)) {
@@ -157,22 +167,56 @@ async function handleImport(event: Event) {
       }
     }
 
-    // 导入模型配置
-    if (Array.isArray(data.modelConfigs)) {
-      for (const item of data.modelConfigs) {
+    // 导入上游配置（新格式 v2）
+    if (Array.isArray(data.upstreams)) {
+      for (const item of data.upstreams) {
         if (!item.name || !item.baseUrl || !item.apiKey) continue
-        const exists = configs.value.some(c => c.name === item.name)
+        const exists = upstreams.value.some(u => u.name === item.name)
         if (exists) continue
         try {
-          await createConfig({
+          await createUpstream({
             name: item.name,
             baseUrl: item.baseUrl,
             apiKey: item.apiKey,
-            modelTypeConfigs: item.modelTypeConfigs || [],
+            apiKeys: item.apiKeys,
+            aimodels: item.aimodels || [],
+            remark: item.remark,
+            isDefault: false,
+            upstreamPlatform: item.upstreamPlatform,
+            userApiKey: item.userApiKey,
+          })
+          upstreamCount++
+        } catch (e) {
+          console.error('导入上游配置失败:', item.name, e)
+        }
+      }
+    }
+
+    // 兼容旧格式（v1 modelConfigs）
+    if (Array.isArray(data.modelConfigs)) {
+      for (const item of data.modelConfigs) {
+        if (!item.name || !item.baseUrl || !item.apiKey) continue
+        const exists = upstreams.value.some(u => u.name === item.name)
+        if (exists) continue
+        try {
+          // 转换旧格式的 modelTypeConfigs 为新格式的 aimodels
+          const aimodels: AimodelInput[] = (item.modelTypeConfigs || []).map((mtc: any) => ({
+            category: mtc.category || 'image',
+            modelType: mtc.modelType,
+            apiFormat: mtc.apiFormat,
+            modelName: mtc.modelName,
+            estimatedTime: mtc.estimatedTime,
+            keyName: mtc.keyName,
+          }))
+          await createUpstream({
+            name: item.name,
+            baseUrl: item.baseUrl,
+            apiKey: item.apiKey,
+            aimodels,
             remark: item.remark,
             isDefault: false,
           })
-          configCount++
+          upstreamCount++
         } catch (e) {
           console.error('导入模型配置失败:', item.name, e)
         }
@@ -181,7 +225,7 @@ async function handleImport(event: Event) {
 
     const parts = []
     if (assistantCount > 0) parts.push(`${assistantCount} 个助手`)
-    if (configCount > 0) parts.push(`${configCount} 个模型配置`)
+    if (upstreamCount > 0) parts.push(`${upstreamCount} 个上游配置`)
 
     if (parts.length > 0) {
       toast.add({ title: `成功导入 ${parts.join('、')}`, color: 'success' })
@@ -266,41 +310,41 @@ async function handleImport(event: Event) {
         </div>
       </div>
 
-      <!-- 模型配置区域 -->
+      <!-- 上游配置区域 -->
       <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="font-medium text-(--ui-text)">模型配置</h3>
+          <h3 class="font-medium text-(--ui-text)">上游配置</h3>
           <UButton
-            v-if="configs.length > 0"
+            v-if="upstreams.length > 0"
             size="xs"
             variant="ghost"
-            @click="toggleAllConfigs"
+            @click="toggleAllUpstreams"
           >
-            {{ isAllConfigsSelected ? '取消全选' : '全选' }}
+            {{ isAllUpstreamsSelected ? '取消全选' : '全选' }}
           </UButton>
         </div>
 
-        <div v-if="configs.length === 0" class="text-center py-6 text-(--ui-text-muted) text-sm">
-          暂无模型配置
+        <div v-if="upstreams.length === 0" class="text-center py-6 text-(--ui-text-muted) text-sm">
+          暂无上游配置
         </div>
 
         <div v-else class="space-y-2">
           <div
-            v-for="config in configs"
-            :key="config.id"
+            v-for="upstream in upstreams"
+            :key="upstream.id"
             class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors"
-            :class="selectedConfigIds.has(config.id)
+            :class="selectedUpstreamIds.has(upstream.id)
               ? 'bg-(--ui-primary)/10'
               : 'hover:bg-(--ui-bg)'"
-            @click="toggleConfig(config.id)"
+            @click="toggleUpstream(upstream.id)"
           >
-            <UCheckbox :model-value="selectedConfigIds.has(config.id)" />
+            <UCheckbox :model-value="selectedUpstreamIds.has(upstream.id)" />
             <UIcon name="i-heroicons-cpu-chip" class="w-5 h-5 text-(--ui-text-muted)" />
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium truncate">{{ config.name }}</div>
-              <div class="text-xs text-(--ui-text-dimmed) truncate">{{ config.baseUrl }}</div>
+              <div class="text-sm font-medium truncate">{{ upstream.name }}</div>
+              <div class="text-xs text-(--ui-text-dimmed) truncate">{{ upstream.baseUrl }}</div>
             </div>
-            <UBadge v-if="config.isDefault" size="xs" color="primary" variant="soft">默认</UBadge>
+            <UBadge v-if="upstream.isDefault" size="xs" color="primary" variant="soft">默认</UBadge>
           </div>
         </div>
       </div>
@@ -312,8 +356,9 @@ async function handleImport(event: Event) {
       <ul class="text-xs text-(--ui-text-muted) space-y-1">
         <li>• 选择要导出的项目后点击"导出选中"</li>
         <li>• 助手导出包含名称、描述、头像（Base64）和系统提示词</li>
-        <li>• 模型配置导出包含名称、API 地址、密钥和模型列表</li>
-        <li>• 导入时会创建新项目，同名模型配置会跳过</li>
+        <li>• 上游配置导出包含名称、API 地址、密钥和模型列表</li>
+        <li>• 导入时会创建新项目，同名上游配置会跳过</li>
+        <li>• 支持导入旧版本（v1）的配置文件</li>
       </ul>
     </div>
   </SettingsLayout>

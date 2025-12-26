@@ -1,7 +1,7 @@
 // 对话服务层（流式响应）
-import type { ModelConfig, Message, MessageFile } from '../database/schema'
+import type { Upstream, Message, MessageFile } from '../database/schema'
 import { readFileAsBase64, isImageMimeType } from './file'
-import { useModelConfigService } from './modelConfig'
+import { useUpstreamService } from './upstream'
 import type { LogContext } from '../utils/logger'
 import { calcSize, logRequest, logCompressRequest, logComplete, logResponse, logError } from '../utils/logger'
 
@@ -69,9 +69,9 @@ function buildMessageContent(text: string, files?: MessageFile[] | null): string
 }
 
 // 创建对话服务实例
-export function createChatService(config: ModelConfig, keyName?: string) {
-  const modelConfigService = useModelConfigService()
-  const apiKey = modelConfigService.getApiKey(config, keyName)
+export function createChatService(upstream: Upstream, keyName?: string) {
+  const upstreamService = useUpstreamService()
+  const apiKey = upstreamService.getApiKey(upstream, keyName)
 
   const headers = {
     'Authorization': `Bearer ${apiKey}`,
@@ -119,13 +119,13 @@ export function createChatService(config: ModelConfig, keyName?: string) {
     signal?: AbortSignal,
     logContext?: LogContext
   ): Promise<{ success: boolean, content?: string, error?: string }> {
-    const url = `${config.baseUrl}/v1/chat/completions`
+    const url = `${upstream.baseUrl}/v1/chat/completions`
     const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
     const startTime = Date.now()
 
     // 记录请求日志
     if (logContext) {
-      const ctx = { ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }
+      const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
       const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
       const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
       const currentSize = calcSize(userMessage)
@@ -160,7 +160,7 @@ export function createChatService(config: ModelConfig, keyName?: string) {
         const errorData = await response.json().catch(() => ({}))
         const errorMsg = errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`
         if (logContext) {
-          logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, errorMsg)
+          logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMsg)
         }
         return {
           success: false,
@@ -174,7 +174,7 @@ export function createChatService(config: ModelConfig, keyName?: string) {
 
       // 记录响应日志
       if (logContext) {
-        logResponse({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, calcSize(content), durationMs)
+        logResponse({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(content), durationMs)
       }
 
       return { success: true, content }
@@ -183,7 +183,7 @@ export function createChatService(config: ModelConfig, keyName?: string) {
         return { success: false, error: '请求已取消' }
       }
       if (logContext) {
-        logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
+        logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, error.message || '请求失败')
       }
       return { success: false, error: error.message || '请求失败' }
     }
@@ -199,13 +199,13 @@ export function createChatService(config: ModelConfig, keyName?: string) {
     signal?: AbortSignal,
     logContext?: LogContext
   ): AsyncGenerator<ChatStreamChunk> {
-    const url = `${config.baseUrl}/v1/chat/completions`
+    const url = `${upstream.baseUrl}/v1/chat/completions`
     const messages = buildMessages(systemPrompt, historyMessages, userMessage, userFiles)
     const startTime = Date.now()
 
     // 记录请求日志
     if (logContext) {
-      const ctx = { ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }
+      const ctx = { ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }
       const systemPromptSize = systemPrompt ? calcSize(systemPrompt) : 0
       const historySize = historyMessages.reduce((sum, m) => sum + calcSize(m.content), 0)
       const currentSize = calcSize(userMessage)
@@ -246,7 +246,7 @@ export function createChatService(config: ModelConfig, keyName?: string) {
           errorMessage = errorData.error?.message || errorMessage
         } catch {}
         if (logContext) {
-          logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, errorMessage)
+          logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, errorMessage)
         }
         throw new Error(errorMessage)
       }
@@ -279,7 +279,7 @@ export function createChatService(config: ModelConfig, keyName?: string) {
             // 记录完成日志
             if (logContext) {
               const durationMs = Date.now() - startTime
-              logComplete({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
+              logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
             }
             yield { content: '', done: true }
             return
@@ -301,7 +301,7 @@ export function createChatService(config: ModelConfig, keyName?: string) {
       // 记录完成日志
       if (logContext) {
         const durationMs = Date.now() - startTime
-        logComplete({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, calcSize(totalContent), durationMs)
+        logComplete({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, calcSize(totalContent), durationMs)
       }
       yield { content: '', done: true }
     } catch (error: any) {
@@ -310,7 +310,7 @@ export function createChatService(config: ModelConfig, keyName?: string) {
         return
       }
       if (logContext) {
-        logError({ ...logContext, configName: config.name, baseUrl: config.baseUrl, modelName }, error.message || '请求失败')
+        logError({ ...logContext, configName: upstream.name, baseUrl: upstream.baseUrl, modelName }, error.message || '请求失败')
       }
       throw error
     }

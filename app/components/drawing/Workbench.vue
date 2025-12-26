@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ModelConfig } from '~/composables/useTasks'
-import type { ImageModelType, ApiFormat, ModelTypeConfig } from '../../shared/types'
+import type { Upstream, Aimodel } from '~/composables/useUpstreams'
+import type { ImageModelType, ApiFormat } from '../../shared/types'
 import {
   API_FORMAT_LABELS,
   MODEL_USAGE_HINTS,
@@ -12,11 +12,11 @@ import {
 } from '../../shared/constants'
 
 const props = defineProps<{
-  modelConfigs: ModelConfig[]
+  upstreams: Upstream[]
 }>()
 
 const emit = defineEmits<{
-  submit: [prompt: string, negativePrompt: string, images: string[], modelConfigId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
+  submit: [prompt: string, negativePrompt: string, images: string[], upstreamId: number, aimodelId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
 }>()
 
 const toast = useToast()
@@ -27,8 +27,8 @@ const prompt = ref('')
 const negativePrompt = ref('')
 const referenceImages = ref<string[]>([])
 const isSubmitting = ref(false)
-const selectedConfigId = ref<number | null>(null)
-const selectedModelName = ref<string | null>(null)
+const selectedUpstreamId = ref<number | null>(null)
+const selectedAimodelId = ref<number | null>(null)
 
 // AI 优化状态
 const isOptimizing = ref(false)
@@ -42,9 +42,9 @@ onMounted(async () => {
 
 // AI 优化配置是否已设置
 const hasAiOptimizeConfig = computed(() => {
-  const configId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_CONFIG_ID]
-  const modelName = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME]
-  return configId && modelName
+  const upstreamId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID]
+  const aimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]
+  return upstreamId && aimodelId
 })
 
 // AI 优化提示词
@@ -66,7 +66,8 @@ async function handleOptimize() {
       headers: getAuthHeader(),
       body: {
         prompt: prompt.value,
-        configId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_CONFIG_ID],
+        upstreamId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID],
+        aimodelId: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID],
         modelName: settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME],
       },
     })
@@ -84,32 +85,32 @@ async function handleOptimize() {
 
 // 模型选择器引用
 const modelSelectorRef = ref<{
-  selectedConfig: ModelConfig | undefined
-  selectedModelTypeConfig: ModelTypeConfig | undefined
+  selectedUpstream: Upstream | undefined
+  selectedAimodel: Aimodel | undefined
 } | null>(null)
 
-// 选中的模型类型配置（从 ModelSelector 获取）
-const selectedModelTypeConfig = computed((): ModelTypeConfig | undefined => {
-  return modelSelectorRef.value?.selectedModelTypeConfig
+// 选中的 AI 模型（从 ModelSelector 获取）
+const selectedAimodel = computed((): Aimodel | undefined => {
+  return modelSelectorRef.value?.selectedAimodel
 })
 
 // 是否支持垫图（部分模型不支持）
 const supportsReferenceImages = computed(() => {
-  if (!selectedModelTypeConfig.value?.apiFormat) return false
-  if (MODELS_WITHOUT_REFERENCE_IMAGE.includes(selectedModelTypeConfig.value.modelType as ImageModelType)) return false
+  if (!selectedAimodel.value?.apiFormat) return false
+  if (MODELS_WITHOUT_REFERENCE_IMAGE.includes(selectedAimodel.value.modelType as ImageModelType)) return false
   return true
 })
 
 // 是否支持负面提示词
 const supportsNegativePrompt = computed(() => {
-  if (!selectedModelTypeConfig.value) return false
-  return MODELS_WITH_NEGATIVE_PROMPT.includes(selectedModelTypeConfig.value.modelType as ImageModelType)
+  if (!selectedAimodel.value) return false
+  return MODELS_WITH_NEGATIVE_PROMPT.includes(selectedAimodel.value.modelType as ImageModelType)
 })
 
 // 当前模型的使用提示
 const currentModelHint = computed(() => {
-  if (!selectedModelTypeConfig.value) return undefined
-  return MODEL_USAGE_HINTS[selectedModelTypeConfig.value.modelType as ImageModelType]
+  if (!selectedAimodel.value) return undefined
+  return MODEL_USAGE_HINTS[selectedAimodel.value.modelType as ImageModelType]
 })
 
 // 模型信息模态框状态
@@ -166,7 +167,7 @@ async function handleSubmit() {
     return
   }
 
-  if (!selectedConfigId.value || selectedModelName.value === null || !selectedModelTypeConfig.value) {
+  if (!selectedUpstreamId.value || selectedAimodelId.value === null || !selectedAimodel.value) {
     toast.add({ title: '请先选择模型配置', color: 'warning' })
     return
   }
@@ -185,10 +186,11 @@ async function handleSubmit() {
       prompt.value,
       negativePromptToSubmit,
       imagesToSubmit,
-      selectedConfigId.value,
-      selectedModelTypeConfig.value.modelType,
-      selectedModelTypeConfig.value.apiFormat,
-      selectedModelTypeConfig.value.modelName
+      selectedUpstreamId.value,
+      selectedAimodelId.value,
+      selectedAimodel.value.modelType as ImageModelType,
+      selectedAimodel.value.apiFormat,
+      selectedAimodel.value.modelName
     )
   } finally {
     isSubmitting.value = false
@@ -219,7 +221,7 @@ defineExpose({
           <span class="inline-flex items-center gap-1.5">
             选择模型
             <button
-              v-if="selectedModelTypeConfig"
+              v-if="selectedAimodel"
               type="button"
               class="inline-flex items-center text-(--ui-text-muted) hover:text-(--ui-text) transition-colors"
               @click="showModelInfoModal = true"
@@ -230,25 +232,25 @@ defineExpose({
         </template>
         <ModelSelector
           ref="modelSelectorRef"
-          :model-configs="modelConfigs"
+          :upstreams="upstreams"
           category="image"
           show-type-label
-          v-model:config-id="selectedConfigId"
-          v-model:model-name="selectedModelName"
+          v-model:upstream-id="selectedUpstreamId"
+          v-model:aimodel-id="selectedAimodelId"
         />
       </UFormField>
 
     <!-- 模型信息模态框 -->
     <UModal v-model:open="showModelInfoModal" title="模型信息">
       <template #body>
-        <div v-if="selectedModelTypeConfig" class="space-y-3">
+        <div v-if="selectedAimodel" class="space-y-3">
           <div class="flex items-center gap-2 text-sm">
             <span class="text-(--ui-text-muted)">请求格式：</span>
-            <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[selectedModelTypeConfig.apiFormat] || selectedModelTypeConfig.apiFormat }}</span>
+            <span class="text-(--ui-text)">{{ API_FORMAT_LABELS[selectedAimodel.apiFormat] || selectedAimodel.apiFormat }}</span>
           </div>
           <div class="flex items-center gap-2 text-sm">
             <span class="text-(--ui-text-muted)">模型名称：</span>
-            <span class="text-(--ui-text) font-mono">{{ selectedModelTypeConfig.modelName }}</span>
+            <span class="text-(--ui-text) font-mono">{{ selectedAimodel.modelName }}</span>
           </div>
           <div
             v-if="currentModelHint"
@@ -362,7 +364,7 @@ defineExpose({
         block
         size="lg"
         :loading="isSubmitting"
-        :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedConfigId || selectedModelName === null || modelConfigs.length === 0"
+        :disabled="(!prompt.trim() && referenceImages.length === 0) || !selectedUpstreamId || selectedAimodelId === null || upstreams.length === 0"
         class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
         @click="handleSubmit"
       >

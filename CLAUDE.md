@@ -89,8 +89,8 @@ docs/                         # 详细设计文档
 | `useTrash` | 回收站管理 |
 | `useConversations` | 对话流式输出（SSE 订阅、打字机效果、消息状态机） |
 | `useAssistants` | 助手 CRUD |
-| `useModelConfigs` | 模型配置管理 |
-| `useChatModels` | 对话模型筛选 |
+| `useUpstreams` | 上游配置管理（包含 aimodels 子表） |
+| `useChatModels` | 对话模型筛选（从 useUpstreams 获取数据） |
 | `useMarkdown` | Markdown 渲染 + Shiki 代码高亮 |
 | `useConversationSuggestions` | 对话开场白建议 |
 | `useTimeFormat` | 时间格式化（formatTimeAgo/formatDate/formatDateTime） |
@@ -295,13 +295,14 @@ created → pending → streaming → completed
 | DELETE | `/api/assistants/[id]` | 删除助手 |
 | POST | `/api/assistants/[id]/suggestions` | 获取开场白建议 |
 
-### 模型配置
+### 上游配置
 | 方法 | 端点 | 功能 |
 |-----|------|-----|
-| GET | `/api/model-configs` | 获取模型配置列表 |
-| POST | `/api/model-configs` | 创建模型配置 |
-| PUT | `/api/model-configs/[id]` | 更新模型配置 |
-| DELETE | `/api/model-configs/[id]` | 删除模型配置 |
+| GET | `/api/upstreams` | 获取上游配置列表（包含 aimodels） |
+| POST | `/api/upstreams` | 创建上游配置 |
+| PUT | `/api/upstreams/[id]` | 更新上游配置 |
+| DELETE | `/api/upstreams/[id]` | 删除上游配置 |
+| GET | `/api/upstreams/[id]/balance` | 查询上游配置的余额 |
 
 ### 对话
 | 方法 | 端点 | 功能 |

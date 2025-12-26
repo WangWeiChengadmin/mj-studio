@@ -6,7 +6,8 @@ export interface Assistant {
   description: string | null
   avatar: string | null
   systemPrompt: string | null
-  modelConfigId: number | null
+  upstreamId: number | null
+  aimodelId: number | null
   modelName: string | null
   isDefault: boolean
   createdAt: string
@@ -56,7 +57,8 @@ export function useAssistants() {
     description?: string
     avatar?: string
     systemPrompt?: string
-    modelConfigId?: number
+    upstreamId?: number
+    aimodelId?: number
     modelName?: string
     isDefault?: boolean
   }) {
@@ -83,7 +85,8 @@ export function useAssistants() {
     description: string | null
     avatar: string | null
     systemPrompt: string | null
-    modelConfigId: number | null
+    upstreamId: number | null
+    aimodelId: number | null
     modelName: string | null
     isDefault: boolean
   }>) {

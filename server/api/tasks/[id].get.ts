@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   const taskService = useTaskService()
 
-  // 获取任务（包含精简的模型配置）
+  // 获取任务（包含精简的上游配置）
   let result = await taskService.getTaskWithSummary(taskId)
 
   if (!result) {
@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  let { task, modelConfig } = result
+  let { task, upstream } = result
 
   // 验证任务属于当前用户
   if (task.userId !== user.id) {
@@ -58,6 +58,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     ...task,
-    modelConfig,
+    upstream,
   }
 })

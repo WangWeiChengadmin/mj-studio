@@ -1,8 +1,9 @@
 // POST /api/tasks - 创建生图任务
 import { useTaskService } from '../../services/task'
-import { useModelConfigService } from '../../services/modelConfig'
+import { useUpstreamService } from '../../services/upstream'
+import { useAimodelService } from '../../services/aimodel'
 import { useUserSettingsService } from '../../services/userSettings'
-import type { ModelType, ApiFormat, ModelTypeConfig } from '../../database/schema'
+import type { ModelType, ApiFormat } from '../../database/schema'
 import { IMAGE_MODEL_TYPES, API_FORMATS, USER_SETTING_KEYS } from '../../../app/shared/constants'
 
 export default defineEventHandler(async (event) => {
@@ -10,13 +11,21 @@ export default defineEventHandler(async (event) => {
   const { user } = await requireAuth(event)
 
   const body = await readBody(event)
-  const { prompt, negativePrompt, images = [], type = 'imagine', modelConfigId, modelType, apiFormat, modelName } = body
+  const { prompt, negativePrompt, images = [], type = 'imagine', upstreamId, aimodelId, modelType, apiFormat, modelName } = body
 
-  // 验证模型配置
-  if (!modelConfigId) {
+  // 验证上游配置
+  if (!upstreamId) {
     throw createError({
       statusCode: 400,
-      message: '请选择模型配置',
+      message: '请选择上游配置',
+    })
+  }
+
+  // 验证 AI 模型
+  if (!aimodelId) {
+    throw createError({
+      statusCode: 400,
+      message: '请选择模型',
     })
   }
 
@@ -36,23 +45,25 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // 验证模型配置属于当前用户且支持该模型类型
-  const modelConfigService = useModelConfigService()
-  const config = await modelConfigService.getById(modelConfigId)
+  // 验证上游配置属于当前用户
+  const upstreamService = useUpstreamService()
+  const upstream = await upstreamService.getByIdSimple(upstreamId)
 
-  if (!config || config.userId !== user.id) {
+  if (!upstream || upstream.userId !== user.id) {
     throw createError({
       statusCode: 400,
-      message: '无效的模型配置',
+      message: '无效的上游配置',
     })
   }
 
-  // 验证配置支持该模型类型
-  const modelTypeConfig = config.modelTypeConfigs?.find((mtc: ModelTypeConfig) => mtc.modelType === modelType)
-  if (!modelTypeConfig) {
+  // 验证 AI 模型属于该上游配置
+  const aimodelService = useAimodelService()
+  const aimodel = await aimodelService.getById(aimodelId)
+
+  if (!aimodel || aimodel.upstreamId !== upstreamId) {
     throw createError({
       statusCode: 400,
-      message: '该配置不支持此模型类型',
+      message: '无效的模型配置',
     })
   }
 
@@ -95,10 +106,11 @@ export default defineEventHandler(async (event) => {
   // 1. 先保存到数据库
   const task = await taskService.createTask({
     userId: user.id,
-    modelConfigId,
+    upstreamId,
+    aimodelId,
     modelType,
     apiFormat,
-    modelName: modelName || modelTypeConfig.modelName,
+    modelName: modelName || aimodel.modelName,
     prompt,
     negativePrompt,
     images: images,

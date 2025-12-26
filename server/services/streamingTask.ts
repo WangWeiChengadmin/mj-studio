@@ -4,7 +4,8 @@
 
 import { useConversationService } from './conversation'
 import { useAssistantService } from './assistant'
-import { useModelConfigService } from './modelConfig'
+import { useUpstreamService } from './upstream'
+import { useAimodelService } from './aimodel'
 import { createChatService } from './chat'
 import { createClaudeChatService } from './claude'
 import {
@@ -45,7 +46,8 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
   const conversationService = useConversationService()
   const assistantService = useAssistantService()
-  const modelConfigService = useModelConfigService()
+  const upstreamService = useUpstreamService()
+  const aimodelService = useAimodelService()
 
   // 创建 AbortController 用于中止
   const abortController = new AbortController()
@@ -67,12 +69,17 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     }
 
     // 获取模型配置
-    if (!assistant.modelConfigId || !assistant.modelName) {
+    if (!assistant.upstreamId || !assistant.aimodelId || !assistant.modelName) {
       throw new Error('请先为助手配置模型')
     }
 
-    const modelConfig = await modelConfigService.getById(assistant.modelConfigId)
-    if (!modelConfig) {
+    const upstream = await upstreamService.getByIdSimple(assistant.upstreamId)
+    if (!upstream) {
+      throw new Error('上游配置不存在')
+    }
+
+    const aimodel = await aimodelService.getById(assistant.aimodelId)
+    if (!aimodel) {
       throw new Error('模型配置不存在')
     }
 
@@ -113,17 +120,14 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
     await conversationService.updateMessageStatus(messageId, 'pending')
     updateSessionStatus(messageId, 'pending')
 
-    // 从 modelTypeConfigs 中查找对应模型的 apiFormat
-    const modelTypeConfig = modelConfig.modelTypeConfigs?.find(
-      mtc => mtc.modelName === assistant.modelName && mtc.category === 'chat'
-    )
-    const apiFormat = modelTypeConfig?.apiFormat || 'openai-chat'
-    const keyName = modelTypeConfig?.keyName
+    // 使用 aimodel 中的 apiFormat 和 keyName
+    const apiFormat = aimodel.apiFormat
+    const keyName = aimodel.keyName
 
     // 根据 apiFormat 创建对应的聊天服务
     const chatService = apiFormat === 'claude'
-      ? createClaudeChatService(modelConfig, keyName)
-      : createChatService(modelConfig, keyName)
+      ? createClaudeChatService(upstream, keyName)
+      : createChatService(upstream, keyName)
 
     // 构建日志上下文
     const logContext: LogContext = {
@@ -165,9 +169,9 @@ export async function startStreamingTask(params: StreamingTaskParams): Promise<v
 
           // 计算首字耗时并更新模型配置的预计时间
           const firstChunkTime = (Date.now() - requestStartTime) / 1000
-          if (assistant.modelConfigId && assistant.modelName) {
-            modelConfigService.updateEstimatedTime(
-              assistant.modelConfigId,
+          if (assistant.upstreamId && assistant.modelName) {
+            aimodelService.updateEstimatedTime(
+              assistant.upstreamId,
               assistant.modelName,
               firstChunkTime
             ).catch(err => console.error('更新预计首字时长失败:', err))

@@ -93,7 +93,8 @@ export function useConversationService() {
     role: 'user' | 'assistant'
     content: string
     files?: MessageFile[]
-    modelConfigId?: number
+    upstreamId?: number
+    aimodelId?: number
     modelName?: string
     mark?: MessageMark
     status?: MessageStatus
@@ -104,7 +105,8 @@ export function useConversationService() {
       role: data.role,
       content: data.content,
       files: data.files ?? null,
-      modelConfigId: data.modelConfigId ?? null,
+      upstreamId: data.upstreamId ?? null,
+      aimodelId: data.aimodelId ?? null,
       modelName: data.modelName ?? null,
       mark: data.mark ?? null,
       status: data.status ?? null,
@@ -257,7 +259,8 @@ export function useConversationService() {
         role: msg.role,
         content: msg.content,
         files: msg.files ?? undefined,
-        modelConfigId: msg.modelConfigId ?? undefined,
+        upstreamId: msg.upstreamId ?? undefined,
+        aimodelId: msg.aimodelId ?? undefined,
         modelName: msg.modelName ?? undefined,
         mark: msg.mark ?? undefined,
         status: msg.status ?? undefined,

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { USER_SETTING_KEYS } from '../../shared/constants'
+import type { ImageModelType } from '../../shared/types'
 
 const { settings, isLoading, isLoaded, loadSettings, updateSettings } = useUserSettings()
-const { configs, loadConfigs } = useModelConfigs()
+const { upstreams, loadUpstreams } = useUpstreams()
 const toast = useToast()
 
 // 表单状态
@@ -12,10 +13,11 @@ const form = reactive({
   titleMaxLength: 30,
   suggestionsCount: 5,
   // 绘图设置
-  aiOptimizeConfigId: 0,
+  aiOptimizeUpstreamId: 0,
+  aiOptimizeAimodelId: 0,
   aiOptimizeModelName: '',
-  embeddedConfigId: 0,
-  embeddedModelType: '',
+  embeddedUpstreamId: 0,
+  embeddedAimodelId: 0,
 })
 
 // 保存状态
@@ -25,7 +27,7 @@ const isSaving = ref(false)
 onMounted(async () => {
   await Promise.all([
     !isLoaded.value ? loadSettings() : Promise.resolve(),
-    loadConfigs(),
+    loadUpstreams(),
   ])
   syncFormFromSettings()
 })
@@ -37,10 +39,11 @@ function syncFormFromSettings() {
   form.titleMaxLength = settings.value[USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH] ?? 30
   form.suggestionsCount = settings.value[USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT] ?? 5
   // 绘图设置
-  form.aiOptimizeConfigId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_CONFIG_ID] ?? 0
+  form.aiOptimizeUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID] ?? 0
+  form.aiOptimizeAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID] ?? 0
   form.aiOptimizeModelName = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME] ?? ''
-  form.embeddedConfigId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_CONFIG_ID] ?? 0
-  form.embeddedModelType = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_MODEL_TYPE] ?? ''
+  form.embeddedUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID] ?? 0
+  form.embeddedAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID] ?? 0
 }
 
 // 保存设置
@@ -53,10 +56,11 @@ async function saveSettings() {
       [USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH]: form.titleMaxLength,
       [USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT]: form.suggestionsCount,
       // 绘图设置
-      [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_CONFIG_ID]: form.aiOptimizeConfigId,
+      [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID]: form.aiOptimizeUpstreamId,
+      [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]: form.aiOptimizeAimodelId,
       [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_MODEL_NAME]: form.aiOptimizeModelName,
-      [USER_SETTING_KEYS.DRAWING_EMBEDDED_CONFIG_ID]: form.embeddedConfigId,
-      [USER_SETTING_KEYS.DRAWING_EMBEDDED_MODEL_TYPE]: form.embeddedModelType,
+      [USER_SETTING_KEYS.DRAWING_EMBEDDED_UPSTREAM_ID]: form.embeddedUpstreamId,
+      [USER_SETTING_KEYS.DRAWING_EMBEDDED_AIMODEL_ID]: form.embeddedAimodelId,
     })
     toast.add({ title: '设置已保存', color: 'success' })
   } catch (error: any) {
@@ -66,43 +70,34 @@ async function saveSettings() {
   }
 }
 
-// ModelSelector 引用
-const aiOptimizeSelectorRef = ref<{ selectedModelTypeConfig: any } | null>(null)
-const embeddedSelectorRef = ref<{ selectedModelTypeConfig: any } | null>(null)
-
 // AI 优化模型选择（对话模型）
-const aiOptimizeConfigId = computed({
-  get: () => form.aiOptimizeConfigId || null,
-  set: (val: number | null) => { form.aiOptimizeConfigId = val || 0 },
+const aiOptimizeUpstreamId = computed({
+  get: () => form.aiOptimizeUpstreamId || null,
+  set: (val: number | null) => { form.aiOptimizeUpstreamId = val || 0 },
 })
-const aiOptimizeModelName = computed({
-  get: () => form.aiOptimizeModelName || null,
-  set: (val: string | null) => { form.aiOptimizeModelName = val || '' },
-})
-
-// 嵌入式绘画模型选择（绘图模型）- 需要存储 modelType
-const embeddedConfigId = computed({
-  get: () => form.embeddedConfigId || null,
-  set: (val: number | null) => { form.embeddedConfigId = val || 0 },
-})
-// 嵌入式绘画存储的是 modelType，但 ModelSelector 使用 modelName
-// 需要根据 modelType 找到对应的 modelName
-const embeddedModelName = computed({
-  get: () => {
-    if (!form.embeddedConfigId || !form.embeddedModelType) return null
-    const config = configs.value.find(c => c.id === form.embeddedConfigId)
-    const mtc = config?.modelTypeConfigs?.find((m: any) => m.modelType === form.embeddedModelType)
-    return mtc?.modelName || null
-  },
-  set: (val: string | null) => {
-    // 当选择模型时，从 ModelSelector 获取 modelType
-    if (!val) {
-      form.embeddedModelType = ''
+const aiOptimizeAimodelId = computed({
+  get: () => form.aiOptimizeAimodelId || null,
+  set: (val: number | null) => {
+    form.aiOptimizeAimodelId = val || 0
+    // 更新 modelName
+    if (val && form.aiOptimizeUpstreamId) {
+      const upstream = upstreams.value.find(u => u.id === form.aiOptimizeUpstreamId)
+      const aimodel = upstream?.aimodels?.find(m => m.id === val)
+      form.aiOptimizeModelName = aimodel?.modelName || ''
     } else {
-      const mtc = embeddedSelectorRef.value?.selectedModelTypeConfig
-      form.embeddedModelType = mtc?.modelType || ''
+      form.aiOptimizeModelName = ''
     }
   },
+})
+
+// 嵌入式绘画模型选择（绘图模型）
+const embeddedUpstreamId = computed({
+  get: () => form.embeddedUpstreamId || null,
+  set: (val: number | null) => { form.embeddedUpstreamId = val || 0 },
+})
+const embeddedAimodelId = computed({
+  get: () => form.embeddedAimodelId || null,
+  set: (val: number | null) => { form.embeddedAimodelId = val || 0 },
 })
 </script>
 
@@ -136,14 +131,13 @@ const embeddedModelName = computed({
               <p class="text-xs text-(--ui-text-muted) mt-1">用于优化绘图提示词的对话模型</p>
             </div>
             <ModelSelector
-              ref="aiOptimizeSelectorRef"
-              :model-configs="configs"
+              :upstreams="upstreams"
               category="chat"
               list-layout
               no-auto-select
               align-right
-              v-model:config-id="aiOptimizeConfigId"
-              v-model:model-name="aiOptimizeModelName"
+              v-model:upstream-id="aiOptimizeUpstreamId"
+              v-model:aimodel-id="aiOptimizeAimodelId"
             />
           </div>
 
@@ -153,14 +147,13 @@ const embeddedModelName = computed({
               <p class="text-xs text-(--ui-text-muted) mt-1">对话中嵌入式绘画的默认模型</p>
             </div>
             <ModelSelector
-              ref="embeddedSelectorRef"
-              :model-configs="configs"
+              :upstreams="upstreams"
               category="image"
               show-type-label
               no-auto-select
               align-right
-              v-model:config-id="embeddedConfigId"
-              v-model:model-name="embeddedModelName"
+              v-model:upstream-id="embeddedUpstreamId"
+              v-model:aimodel-id="embeddedAimodelId"
             />
           </div>
         </div>

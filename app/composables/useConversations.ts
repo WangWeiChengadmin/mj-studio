@@ -9,7 +9,8 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   files?: MessageFile[] | null
-  modelConfigId: number | null
+  upstreamId: number | null
+  aimodelId: number | null
   modelName: string | null
   createdAt: string
   mark?: MessageMark | null
@@ -429,7 +430,8 @@ export function useConversations() {
       role: 'user',
       content,
       files: files || null,
-      modelConfigId: null,
+      upstreamId: null,
+      aimodelId: null,
       modelName: null,
       createdAt: new Date().toISOString(),
     }
@@ -459,7 +461,8 @@ export function useConversations() {
         conversationId,
         role: 'assistant',
         content: '',
-        modelConfigId: null,
+        upstreamId: null,
+        aimodelId: null,
         modelName: modelName || null,
         createdAt: new Date().toISOString(),
         status: 'created',
@@ -485,7 +488,8 @@ export function useConversations() {
         conversationId,
         role: 'assistant',
         content: error.message || '发送失败',
-        modelConfigId: null,
+        upstreamId: null,
+        aimodelId: null,
         modelName: null,
         createdAt: new Date().toISOString(),
         mark: 'error',
@@ -533,7 +537,8 @@ export function useConversations() {
         conversationId: message.conversationId,
         role: 'assistant',
         content: '',
-        modelConfigId: null,
+        upstreamId: null,
+        aimodelId: null,
         modelName: null,
         createdAt: new Date().toISOString(),
         status: 'created',
@@ -549,7 +554,8 @@ export function useConversations() {
         conversationId: message.conversationId,
         role: 'assistant',
         content: error.message || '重放失败',
-        modelConfigId: null,
+        upstreamId: null,
+        aimodelId: null,
         modelName: null,
         createdAt: new Date().toISOString(),
         mark: 'error',
@@ -702,7 +708,8 @@ export function useConversations() {
       conversationId,
       role: 'assistant',
       content: '',
-      modelConfigId: null,
+      upstreamId: null,
+      aimodelId: null,
       modelName: modelName || null,
       createdAt: new Date().toISOString(),
       mark: 'compress-response',

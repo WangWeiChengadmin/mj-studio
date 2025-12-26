@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ModelTypeConfig, ChatModelType, ApiKeyConfig, BalanceApiType } from '../../../shared/types'
+import type { ModelCategory, ImageModelType, ModelType, ApiFormat, ChatModelType, ApiKeyConfig, UpstreamPlatform } from '../../../shared/types'
 import type { FormSubmitEvent, FormError, TabsItem } from '@nuxt/ui'
+import type { AimodelInput } from '../../../composables/useUpstreams'
 import {
   IMAGE_MODEL_TYPES,
   MODEL_API_FORMAT_OPTIONS,
-  MODEL_CATEGORY_MAP,
   DEFAULT_MODEL_NAMES,
   DEFAULT_ESTIMATED_TIMES,
   MODEL_TYPE_LABELS,
@@ -19,14 +19,14 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
-const { configs, loadConfigs, createConfig, updateConfig } = useModelConfigs()
+const { upstreams, loadUpstreams, createUpstream, updateUpstream } = useUpstreams()
 
 // 是否是新建模式
 const isNew = computed(() => route.params.id === 'new')
-const configId = computed(() => isNew.value ? null : Number(route.params.id))
+const upstreamId = computed(() => isNew.value ? null : Number(route.params.id))
 
 // 页面标题
-const pageTitle = computed(() => isNew.value ? '添加配置' : '编辑配置')
+const pageTitle = computed(() => isNew.value ? '添加上游配置' : '编辑上游配置')
 
 // 表单状态
 const form = reactive({
@@ -35,18 +35,18 @@ const form = reactive({
   apiKey: '', // 保留用于兼容，实际使用 apiKeys
   remark: '',
   isDefault: false,
-  balanceApiType: undefined as BalanceApiType | undefined,
-  balanceApiKey: '',
+  upstreamPlatform: undefined as UpstreamPlatform | undefined,
+  userApiKey: '',
 })
 
 // 多 Key 配置
 const apiKeys = ref<ApiKeyConfig[]>([{ name: 'default', key: '' }])
 
-// 绘图模型配置
-const imageModelConfigs = ref<ModelTypeConfig[]>([])
+// 绘图模型配置（使用 AimodelInput 格式）
+const imageAimodels = ref<AimodelInput[]>([])
 
 // 对话模型配置
-const chatModelConfigs = ref<ModelTypeConfig[]>([])
+const chatAimodels = ref<AimodelInput[]>([])
 
 // 当前 Tab
 const activeTab = ref('image')
@@ -81,42 +81,60 @@ function validate(state: typeof form): FormError[] {
   if (!hasValidKey) {
     errors.push({ name: 'apiKey', message: '请至少添加一个API密钥' })
   }
+  // 选了余额查询类型后，userApiKey 必填
+  if (state.upstreamPlatform && !state.userApiKey?.trim()) {
+    errors.push({ name: 'upstreamPlatform', message: '请输入用于查询余额的 API Key' })
+  }
   return errors
 }
 
 // 加载配置数据
-async function loadConfigData() {
-  await loadConfigs()
+async function loadUpstreamData() {
+  await loadUpstreams()
 
-  if (!isNew.value && configId.value) {
-    const config = configs.value.find(c => c.id === configId.value)
-    if (config) {
+  if (!isNew.value && upstreamId.value) {
+    const upstream = upstreams.value.find(u => u.id === upstreamId.value)
+    if (upstream) {
       Object.assign(form, {
-        name: config.name,
-        baseUrl: config.baseUrl,
-        apiKey: config.apiKey,
-        remark: config.remark || '',
-        isDefault: config.isDefault,
-        balanceApiType: config.balanceApiType || undefined,
-        balanceApiKey: config.balanceApiKey || '',
+        name: upstream.name,
+        baseUrl: upstream.baseUrl,
+        apiKey: upstream.apiKey,
+        remark: upstream.remark || '',
+        isDefault: upstream.isDefault,
+        upstreamPlatform: upstream.upstreamPlatform || undefined,
+        userApiKey: upstream.userApiKey || '',
       })
 
       // 加载 apiKeys
-      if (config.apiKeys && config.apiKeys.length > 0) {
-        apiKeys.value = config.apiKeys
+      if (upstream.apiKeys && upstream.apiKeys.length > 0) {
+        apiKeys.value = upstream.apiKeys
       } else {
         // 兼容旧数据
-        apiKeys.value = [{ name: 'default', key: config.apiKey }]
+        apiKeys.value = [{ name: 'default', key: upstream.apiKey }]
       }
 
       // 分离绘图模型和对话模型
-      if (config.modelTypeConfigs) {
-        imageModelConfigs.value = config.modelTypeConfigs.filter(
-          (c: ModelTypeConfig) => !c.category || c.category === 'image'
-        )
-        chatModelConfigs.value = config.modelTypeConfigs.filter(
-          (c: ModelTypeConfig) => c.category === 'chat'
-        )
+      if (upstream.aimodels) {
+        imageAimodels.value = upstream.aimodels
+          .filter(m => !m.category || m.category === 'image')
+          .map(m => ({
+            category: 'image' as ModelCategory,
+            modelType: m.modelType,
+            apiFormat: m.apiFormat,
+            modelName: m.modelName,
+            estimatedTime: m.estimatedTime,
+            keyName: m.keyName,
+          }))
+        chatAimodels.value = upstream.aimodels
+          .filter(m => m.category === 'chat')
+          .map(m => ({
+            category: 'chat' as ModelCategory,
+            modelType: m.modelType,
+            apiFormat: m.apiFormat,
+            modelName: m.modelName,
+            estimatedTime: m.estimatedTime,
+            keyName: m.keyName,
+          }))
       }
     } else {
       toast.add({ title: '配置不存在', color: 'error' })
@@ -124,13 +142,13 @@ async function loadConfigData() {
     }
   } else {
     // 新建时设置默认值
-    form.isDefault = configs.value.length === 0
+    form.isDefault = upstreams.value.length === 0
     apiKeys.value = [{ name: 'default', key: '' }]
   }
 }
 
 onMounted(() => {
-  loadConfigData()
+  loadUpstreamData()
 })
 
 // 获取可用的请求格式
@@ -140,7 +158,7 @@ function getAvailableFormats(modelType: ModelType): ApiFormat[] {
 
 // 添加绘图模型
 function addImageModel() {
-  imageModelConfigs.value.push({
+  imageAimodels.value.push({
     category: 'image',
     modelType: '' as any,
     apiFormat: '' as any,
@@ -151,7 +169,7 @@ function addImageModel() {
 
 // 添加对话模型
 function addChatModel() {
-  chatModelConfigs.value.push({
+  chatAimodels.value.push({
     category: 'chat',
     modelType: 'gpt' as any, // 保留字段但使用默认值
     apiFormat: 'openai-chat' as any,
@@ -161,35 +179,39 @@ function addChatModel() {
 
 // 移除模型配置
 function removeImageModel(index: number) {
-  imageModelConfigs.value.splice(index, 1)
+  imageAimodels.value.splice(index, 1)
 }
 
 function removeChatModel(index: number) {
-  chatModelConfigs.value.splice(index, 1)
+  chatAimodels.value.splice(index, 1)
 }
 
 // 当模型类型变化时，更新默认值
 function onImageModelTypeChange(index: number) {
-  const config = imageModelConfigs.value[index]
-  const availableFormats = getAvailableFormats(config.modelType as ModelType)
+  const aimodel = imageAimodels.value[index]
+  if (!aimodel) return
 
-  if (!availableFormats.includes(config.apiFormat)) {
-    config.apiFormat = availableFormats[0]
+  const availableFormats = getAvailableFormats(aimodel.modelType as ModelType)
+
+  if (!availableFormats.includes(aimodel.apiFormat)) {
+    aimodel.apiFormat = availableFormats[0] || 'mj-proxy'
   }
 
-  config.modelName = DEFAULT_MODEL_NAMES[config.modelType as ModelType]
-  config.estimatedTime = DEFAULT_ESTIMATED_TIMES[config.modelType as ImageModelType]
+  aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
+  aimodel.estimatedTime = DEFAULT_ESTIMATED_TIMES[aimodel.modelType as ImageModelType] || 60
 }
 
 function onChatModelTypeChange(index: number) {
-  const config = chatModelConfigs.value[index]
-  const availableFormats = getAvailableFormats(config.modelType as ModelType)
+  const aimodel = chatAimodels.value[index]
+  if (!aimodel) return
 
-  if (!availableFormats.includes(config.apiFormat)) {
-    config.apiFormat = availableFormats[0]
+  const availableFormats = getAvailableFormats(aimodel.modelType as ModelType)
+
+  if (!availableFormats.includes(aimodel.apiFormat)) {
+    aimodel.apiFormat = availableFormats[0] || 'openai-chat'
   }
 
-  config.modelName = DEFAULT_MODEL_NAMES[config.modelType as ModelType]
+  aimodel.modelName = DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || ''
 }
 
 // 获取推断的模型类型显示
@@ -203,14 +225,16 @@ function getInferredModelType(modelName: string): { type: ChatModelType | null; 
 
 // 当对话模型名称变化时，自动推断类型
 function onChatModelNameChange(index: number) {
-  const config = chatModelConfigs.value[index]
-  const inferred = inferChatModelType(config.modelName)
+  const aimodel = chatAimodels.value[index]
+  if (!aimodel) return
+
+  const inferred = inferChatModelType(aimodel.modelName)
   if (inferred) {
-    config.modelType = inferred
+    aimodel.modelType = inferred
     // 确保 apiFormat 兼容
     const availableFormats = getAvailableFormats(inferred)
-    if (!availableFormats.includes(config.apiFormat)) {
-      config.apiFormat = availableFormats[0]
+    if (!availableFormats.includes(aimodel.apiFormat)) {
+      aimodel.apiFormat = availableFormats[0] || 'openai-chat'
     }
   }
 }
@@ -233,7 +257,7 @@ function removeApiKey(index: number) {
 }
 
 // 余额查询 API 类型选项
-const balanceApiOptions = [
+const upstreamPlatformOptions = [
   { label: '不查询', value: undefined },
   { label: 'OneAPI/NewAPI', value: 'oneapi' },
   { label: 'n1n', value: 'n1n' },
@@ -255,12 +279,12 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
   }
 
   // 合并模型配置
-  const allModelConfigs = [
-    ...imageModelConfigs.value.map(c => ({ ...c, category: 'image' as ModelCategory })),
-    ...chatModelConfigs.value.map(c => ({ ...c, category: 'chat' as ModelCategory })),
+  const allAimodels: AimodelInput[] = [
+    ...imageAimodels.value.map(m => ({ ...m, category: 'image' as ModelCategory })),
+    ...chatAimodels.value.map(m => ({ ...m, category: 'chat' as ModelCategory })),
   ]
 
-  if (allModelConfigs.length === 0) {
+  if (allAimodels.length === 0) {
     toast.add({ title: '请至少添加一种模型', color: 'error' })
     return
   }
@@ -270,29 +294,29 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
 
   try {
     if (isNew.value) {
-      await createConfig({
+      await createUpstream({
         name: form.name,
         baseUrl: form.baseUrl,
         apiKey: primaryApiKey,
         apiKeys: validApiKeys,
-        modelTypeConfigs: allModelConfigs,
+        aimodels: allAimodels,
         remark: form.remark,
         isDefault: form.isDefault,
-        balanceApiType: form.balanceApiType,
-        balanceApiKey: form.balanceApiKey || null,
+        upstreamPlatform: form.upstreamPlatform,
+        userApiKey: form.userApiKey || undefined,
       })
       toast.add({ title: '配置已创建', color: 'success' })
     } else {
-      await updateConfig(configId.value!, {
+      await updateUpstream(upstreamId.value!, {
         name: form.name,
         baseUrl: form.baseUrl,
         apiKey: primaryApiKey,
         apiKeys: validApiKeys,
-        modelTypeConfigs: allModelConfigs,
+        aimodels: allAimodels,
         remark: form.remark || null,
         isDefault: form.isDefault,
-        balanceApiType: form.balanceApiType,
-        balanceApiKey: form.balanceApiKey || null,
+        upstreamPlatform: form.upstreamPlatform || null,
+        userApiKey: form.userApiKey || null,
       })
       toast.add({ title: '配置已更新', color: 'success' })
     }
@@ -317,12 +341,12 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
       </div>
       <div class="flex gap-2">
         <UButton variant="outline" color="neutral" @click="router.back()">取消</UButton>
-        <UButton type="submit" form="model-config-form">{{ isNew ? '创建' : '保存' }}</UButton>
+        <UButton type="submit" form="upstream-form">{{ isNew ? '创建' : '保存' }}</UButton>
       </div>
     </div>
 
     <!-- 表单 -->
-      <UForm id="model-config-form" :state="form" :validate="validate" class="space-y-6" autocomplete="off" @submit="onSubmit">
+      <UForm id="upstream-form" :state="form" :validate="validate" class="space-y-6" autocomplete="off" @submit="onSubmit">
         <!-- 隐藏输入框防止浏览器自动填充 -->
         <input type="text" style="display:none" />
         <input type="password" style="display:none" />
@@ -364,11 +388,9 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
               />
               <UInput
                 v-model="keyConfig.key"
-                type="password"
                 placeholder="sk-xxx..."
                 class="flex-1"
                 size="sm"
-                autocomplete="new-password"
               />
               <UButton
                 v-if="apiKeys.length > 1"
@@ -382,23 +404,25 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
           </div>
 
           <!-- 余额查询配置 -->
-          <UFormField label="余额查询" name="balanceApiType">
+          <UFormField label="余额查询" name="upstreamPlatform">
             <div class="flex items-center gap-3">
               <USelect
-                v-model="form.balanceApiType"
-                :items="balanceApiOptions"
+                v-model="form.upstreamPlatform"
+                :items="upstreamPlatformOptions"
                 class="w-40"
                 placeholder="选择类型"
               />
               <UInput
-                v-if="form.balanceApiType"
-                v-model="form.balanceApiKey"
-                type="password"
-                placeholder="查询用 Key（留空使用第一个）"
-                class="w-60"
-                autocomplete="new-password"
+                v-if="form.upstreamPlatform"
+                v-model="form.userApiKey"
+                placeholder="格式：用户ID:令牌"
+                class="w-80"
+                required
               />
             </div>
+            <template v-if="form.upstreamPlatform" #hint>
+              <span class="text-xs text-(--ui-text-muted)">格式：用户ID:系统访问令牌（在平台个人中心获取）</span>
+            </template>
           </UFormField>
 
           <UFormField label="备注" name="remark">
@@ -433,13 +457,13 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                   <!-- 模型卡片列表 -->
                   <div
-                    v-for="(mtc, index) in imageModelConfigs"
+                    v-for="(aimodel, index) in imageAimodels"
                     :key="index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
                     <div class="flex items-center justify-between mb-2">
                       <span class="text-sm font-medium text-(--ui-text) truncate">
-                        🎨 {{ MODEL_TYPE_LABELS[mtc.modelType] || '未选择' }}
+                        🎨 {{ MODEL_TYPE_LABELS[aimodel.modelType] || '未选择' }}
                       </span>
                       <UButton
                         size="xs"
@@ -455,7 +479,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                     <div class="space-y-2">
                       <UFormField label="模型类型">
                         <USelectMenu
-                          v-model="mtc.modelType"
+                          v-model="aimodel.modelType"
                           :items="IMAGE_MODEL_TYPES.map(t => ({ label: MODEL_TYPE_LABELS[t], value: t }))"
                           value-key="value"
                           class="w-40"
@@ -466,13 +490,13 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                       <UFormField label="请求格式">
                         <div class="flex flex-wrap gap-1.5">
                           <UButton
-                            v-for="f in getAvailableFormats(mtc.modelType as ModelType)"
+                            v-for="f in getAvailableFormats(aimodel.modelType as ModelType)"
                             :key="f"
                             size="xs"
-                            :variant="mtc.apiFormat === f ? 'solid' : 'outline'"
-                            :color="mtc.apiFormat === f ? 'primary' : 'neutral'"
+                            :variant="aimodel.apiFormat === f ? 'solid' : 'outline'"
+                            :color="aimodel.apiFormat === f ? 'primary' : 'neutral'"
                             type="button"
-                            @click="mtc.apiFormat = f"
+                            @click="aimodel.apiFormat = f"
                           >
                             {{ API_FORMAT_LABELS[f] }}
                           </UButton>
@@ -481,15 +505,15 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
 
                       <UFormField label="模型名称">
                         <UInput
-                          v-model="mtc.modelName"
-                          :placeholder="DEFAULT_MODEL_NAMES[mtc.modelType as ModelType] || '可选'"
+                          v-model="aimodel.modelName"
+                          :placeholder="DEFAULT_MODEL_NAMES[aimodel.modelType as ModelType] || '可选'"
                           class="w-60"
                         />
                       </UFormField>
 
                       <UFormField label="预计时间(秒)">
                         <UInput
-                          v-model.number="mtc.estimatedTime"
+                          v-model.number="aimodel.estimatedTime"
                           type="number"
                           min="1"
                           class="w-24"
@@ -498,7 +522,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
 
                       <UFormField v-if="apiKeys.length > 1" label="使用 Key">
                         <USelectMenu
-                          v-model="mtc.keyName"
+                          v-model="aimodel.keyName"
                           :items="availableKeyNames"
                           value-key="value"
                           placeholder="default"
@@ -527,7 +551,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
                   <!-- 模型卡片列表 -->
                   <div
-                    v-for="(mtc, index) in chatModelConfigs"
+                    v-for="(aimodel, index) in chatAimodels"
                     :key="index"
                     class="p-3 rounded-lg bg-(--ui-bg-muted) border border-(--ui-border)"
                   >
@@ -536,11 +560,11 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                         <span class="text-sm font-medium text-(--ui-text)">💬</span>
                         <span
                           class="text-xs px-2 py-0.5 rounded-full"
-                          :class="getInferredModelType(mtc.modelName).type
+                          :class="getInferredModelType(aimodel.modelName).type
                             ? 'bg-(--ui-primary)/10 text-(--ui-primary)'
                             : 'bg-(--ui-bg-accented) text-(--ui-text-muted)'"
                         >
-                          {{ getInferredModelType(mtc.modelName).label }}
+                          {{ getInferredModelType(aimodel.modelName).label }}
                         </span>
                       </div>
                       <UButton
@@ -559,13 +583,13 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                       <UFormField label="请求格式">
                         <div class="flex flex-wrap gap-1.5">
                           <UButton
-                            v-for="f in getAvailableFormats(mtc.modelType as ModelType)"
+                            v-for="f in getAvailableFormats(aimodel.modelType as ModelType)"
                             :key="f"
                             size="xs"
-                            :variant="mtc.apiFormat === f ? 'solid' : 'outline'"
-                            :color="mtc.apiFormat === f ? 'primary' : 'neutral'"
+                            :variant="aimodel.apiFormat === f ? 'solid' : 'outline'"
+                            :color="aimodel.apiFormat === f ? 'primary' : 'neutral'"
                             type="button"
-                            @click="mtc.apiFormat = f"
+                            @click="aimodel.apiFormat = f"
                           >
                             {{ API_FORMAT_LABELS[f] }}
                           </UButton>
@@ -575,7 +599,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
                       <!-- 模型名称输入 -->
                       <UFormField label="模型名称">
                         <UInput
-                          v-model="mtc.modelName"
+                          v-model="aimodel.modelName"
                           placeholder="输入模型名称，如 gpt-4o、claude-3-opus..."
                           class="w-60"
                           @input="onChatModelNameChange(index)"
@@ -584,7 +608,7 @@ async function onSubmit(event: FormSubmitEvent<typeof form>) {
 
                       <UFormField v-if="apiKeys.length > 1" label="使用 Key">
                         <USelectMenu
-                          v-model="mtc.keyName"
+                          v-model="aimodel.keyName"
                           :items="availableKeyNames"
                           value-key="value"
                           placeholder="default"

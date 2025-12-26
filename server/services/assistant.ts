@@ -17,7 +17,8 @@ export function useAssistantService() {
         description: assistants.description,
         avatar: assistants.avatar,
         systemPrompt: assistants.systemPrompt,
-        modelConfigId: assistants.modelConfigId,
+        upstreamId: assistants.upstreamId,
+        aimodelId: assistants.aimodelId,
         modelName: assistants.modelName,
         isDefault: assistants.isDefault,
         createdAt: assistants.createdAt,
@@ -56,7 +57,8 @@ export function useAssistantService() {
     description?: string
     avatar?: string
     systemPrompt?: string
-    modelConfigId?: number
+    upstreamId?: number
+    aimodelId?: number
     modelName?: string
     isDefault?: boolean
   }): Promise<Assistant> {
@@ -73,7 +75,8 @@ export function useAssistantService() {
       description: data.description ?? null,
       avatar: data.avatar ?? null,
       systemPrompt: data.systemPrompt ?? null,
-      modelConfigId: data.modelConfigId ?? null,
+      upstreamId: data.upstreamId ?? null,
+      aimodelId: data.aimodelId ?? null,
       modelName: data.modelName ?? null,
       isDefault: data.isDefault ?? false,
     }).returning()
@@ -87,7 +90,8 @@ export function useAssistantService() {
     description: string | null
     avatar: string | null
     systemPrompt: string | null
-    modelConfigId: number | null
+    upstreamId: number | null
+    aimodelId: number | null
     modelName: string | null
     isDefault: boolean
   }>): Promise<Assistant | undefined> {

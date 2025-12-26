@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { ModelConfig } from '~/composables/useTasks'
+import type { Upstream, Aimodel } from '~/composables/useUpstreams'
 import type { Message, UploadingFile } from '~/composables/useConversations'
 import type { MessageFile } from '~/shared/types'
 
 const props = defineProps<{
-  modelConfigs: ModelConfig[]
-  currentConfigId: number | null
-  currentModelName: string | null
+  upstreams: Upstream[]
+  currentUpstreamId: number | null
+  currentAimodelId: number | null
   disabled: boolean
   isStreaming?: boolean
   messages?: Message[]
@@ -20,7 +20,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   send: [content: string, files?: MessageFile[]]
   addMessage: [content: string, role: 'user' | 'assistant']
-  updateModel: [configId: number, modelName: string]
+  updateModel: [upstreamId: number, aimodelId: number]
   stop: []
   compress: []
   scrollToCompress: []
@@ -278,24 +278,24 @@ function dismissCompressHint() {
 }
 
 // 模型选择器引用
-const modelSelectorRef = ref<{ selectedConfig: any; selectedModelTypeConfig: any } | null>(null)
+const modelSelectorRef = ref<{ selectedUpstream: any; selectedAimodel: any } | null>(null)
 
 // 当前选中的配置（从 ModelSelector 获取）
-const selectedConfigId = ref<number | null>(props.currentConfigId)
-const selectedModelName = ref<string | null>(props.currentModelName)
+const selectedUpstreamId = ref<number | null>(props.currentUpstreamId)
+const selectedAimodelId = ref<number | null>(props.currentAimodelId)
 
 // 处理模型选择变化
-function handleConfigIdChange(id: number | null) {
-  selectedConfigId.value = id
-  if (id !== null && selectedModelName.value !== null) {
-    emit('updateModel', id, selectedModelName.value)
+function handleUpstreamIdChange(id: number | null) {
+  selectedUpstreamId.value = id
+  if (id !== null && selectedAimodelId.value !== null) {
+    emit('updateModel', id, selectedAimodelId.value)
   }
 }
 
-function handleModelNameChange(name: string | null) {
-  selectedModelName.value = name
-  if (selectedConfigId.value !== null && name !== null) {
-    emit('updateModel', selectedConfigId.value, name)
+function handleAimodelIdChange(id: number | null) {
+  selectedAimodelId.value = id
+  if (selectedUpstreamId.value !== null && id !== null) {
+    emit('updateModel', selectedUpstreamId.value, id)
   }
 }
 
@@ -402,13 +402,13 @@ function handleInput(e: Event) {
     <div class="flex flex-wrap items-center gap-3 mb-3">
       <ModelSelector
         ref="modelSelectorRef"
-        :model-configs="modelConfigs"
+        :upstreams="upstreams"
         category="chat"
         list-layout
-        :config-id="currentConfigId"
-        :model-name="currentModelName"
-        @update:config-id="handleConfigIdChange"
-        @update:model-name="handleModelNameChange"
+        :upstream-id="currentUpstreamId"
+        :aimodel-id="currentAimodelId"
+        @update:upstream-id="handleUpstreamIdChange"
+        @update:aimodel-id="handleAimodelIdChange"
       />
       <!-- 文件上传按钮 -->
       <UButton
@@ -548,7 +548,7 @@ function handleInput(e: Event) {
         <UButton
           color="primary"
           class="h-[48px] w-[56px]"
-          :disabled="(!props.content.trim() && uploadedFiles.length === 0) || isUploading || !selectedConfigId || !selectedModelName"
+          :disabled="(!props.content.trim() && uploadedFiles.length === 0) || isUploading || !selectedUpstreamId || !selectedAimodelId"
           @click="handleSend"
         >
           <UIcon name="i-heroicons-paper-airplane" class="w-5 h-5" />

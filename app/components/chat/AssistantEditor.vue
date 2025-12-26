@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { Assistant } from '~/composables/useAssistants'
-import type { ModelConfig } from '~/composables/useTasks'
+import type { Upstream, Aimodel } from '~/composables/useUpstreams'
 import type { FormSubmitEvent, FormError } from '@nuxt/ui'
 
 const props = defineProps<{
   assistant: Assistant | null
-  modelConfigs: ModelConfig[]
+  upstreams: Upstream[]
   open: boolean
 }>()
 
@@ -20,7 +20,8 @@ const formData = reactive({
   description: '',
   avatar: '',
   systemPrompt: '',
-  modelConfigId: null as number | null,
+  upstreamId: null as number | null,
+  aimodelId: null as number | null,
   modelName: null as string | null,
 })
 
@@ -41,7 +42,8 @@ watch(() => props.assistant, (assistant) => {
       description: assistant.description || '',
       avatar: assistant.avatar || '',
       systemPrompt: assistant.systemPrompt || '',
-      modelConfigId: assistant.modelConfigId,
+      upstreamId: assistant.upstreamId,
+      aimodelId: assistant.aimodelId,
       modelName: assistant.modelName,
     })
   } else {
@@ -50,7 +52,8 @@ watch(() => props.assistant, (assistant) => {
       description: '',
       avatar: '',
       systemPrompt: '',
-      modelConfigId: null,
+      upstreamId: null,
+      aimodelId: null,
       modelName: null,
     })
   }
@@ -68,21 +71,23 @@ function isImageModel(modelType: string): boolean {
 // 获取所有对话模型（扁平化：上游 + 模型）
 const allChatModels = computed(() => {
   const result: Array<{
-    configId: number
-    configName: string
+    upstreamId: number
+    upstreamName: string
+    aimodelId: number
     modelName: string
   }> = []
 
-  for (const config of props.modelConfigs) {
-    for (const model of config.modelTypeConfigs || []) {
-      const isChat = model.category === 'chat' ||
-        (!model.category && model.apiFormat === 'openai-chat' && !isImageModel(model.modelType))
+  for (const upstream of props.upstreams) {
+    for (const aimodel of upstream.aimodels || []) {
+      const isChat = aimodel.category === 'chat' ||
+        (!aimodel.category && aimodel.apiFormat === 'openai-chat' && !isImageModel(aimodel.modelType))
 
       if (isChat) {
         result.push({
-          configId: config.id,
-          configName: config.name,
-          modelName: model.modelName
+          upstreamId: upstream.id,
+          upstreamName: upstream.name,
+          aimodelId: aimodel.id,
+          modelName: aimodel.modelName
         })
       }
     }
@@ -93,12 +98,12 @@ const allChatModels = computed(() => {
 
 // 当前选中的显示文本
 const currentDisplayText = computed(() => {
-  if (!formData.modelConfigId || !formData.modelName) {
+  if (!formData.upstreamId || !formData.aimodelId) {
     return '选择模型'
   }
-  const config = props.modelConfigs.find(c => c.id === formData.modelConfigId)
-  if (!config) return '选择模型'
-  return `${config.name} / ${formData.modelName}`
+  const upstream = props.upstreams.find(u => u.id === formData.upstreamId)
+  if (!upstream) return '选择模型'
+  return `${upstream.name} / ${formData.modelName || '未知模型'}`
 })
 
 // 下拉菜单项（按上游分组）
@@ -106,23 +111,23 @@ const modelDropdownItems = computed(() => {
   const groups: any[][] = []
 
   // 按上游分组
-  const configMap = new Map<number, { name: string, models: string[] }>()
+  const upstreamMap = new Map<number, { name: string, models: { aimodelId: number, modelName: string }[] }>()
   for (const item of allChatModels.value) {
-    if (!configMap.has(item.configId)) {
-      configMap.set(item.configId, { name: item.configName, models: [] })
+    if (!upstreamMap.has(item.upstreamId)) {
+      upstreamMap.set(item.upstreamId, { name: item.upstreamName, models: [] })
     }
-    configMap.get(item.configId)!.models.push(item.modelName)
+    upstreamMap.get(item.upstreamId)!.models.push({ aimodelId: item.aimodelId, modelName: item.modelName })
   }
 
   // 构建分组菜单
-  for (const [configId, { name, models }] of configMap) {
+  for (const [upstreamId, { name, models }] of upstreamMap) {
     const group: any[] = [
       { label: name, type: 'label' }
     ]
-    for (const modelName of models) {
+    for (const { aimodelId, modelName } of models) {
       group.push({
         label: modelName,
-        onSelect: () => handleSelectModel(configId, modelName)
+        onSelect: () => handleSelectModel(upstreamId, aimodelId, modelName)
       })
     }
     groups.push(group)
@@ -132,8 +137,9 @@ const modelDropdownItems = computed(() => {
 })
 
 // 选择模型
-function handleSelectModel(configId: number, modelName: string) {
-  formData.modelConfigId = configId
+function handleSelectModel(upstreamId: number, aimodelId: number, modelName: string) {
+  formData.upstreamId = upstreamId
+  formData.aimodelId = aimodelId
   formData.modelName = modelName
 }
 
@@ -164,7 +170,8 @@ function onSubmit(event: FormSubmitEvent<typeof formData>) {
     description: event.data.description?.trim() || null,
     avatar: event.data.avatar || null,
     systemPrompt: event.data.systemPrompt?.trim() || null,
-    modelConfigId: event.data.modelConfigId,
+    upstreamId: event.data.upstreamId,
+    aimodelId: event.data.aimodelId,
     modelName: event.data.modelName,
   })
 }

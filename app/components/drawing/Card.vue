@@ -108,7 +108,7 @@ const isLoading = computed(() => ['pending', 'submitting', 'processing'].include
 
 // 获取当前任务的预计时间（秒）（使用共享常量 DEFAULT_FALLBACK_ESTIMATED_TIME）
 const estimatedTime = computed(() => {
-  return props.task.modelConfig?.estimatedTime ?? DEFAULT_FALLBACK_ESTIMATED_TIME
+  return props.task.upstream?.estimatedTime ?? DEFAULT_FALLBACK_ESTIMATED_TIME
 })
 
 // 进度条：当前时间（定时更新）
@@ -485,7 +485,7 @@ async function showErrorDetail() {
           </div>
           <div class="flex justify-between">
             <span class="text-(--ui-text-muted)">上游</span>
-            <span class="text-(--ui-text)">{{ task.modelConfig?.name || '未知' }}</span>
+            <span class="text-(--ui-text)">{{ task.upstream?.name || '未知' }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-(--ui-text-muted)">模型类型</span>
