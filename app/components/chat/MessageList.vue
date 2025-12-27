@@ -864,7 +864,6 @@ function isEditing(messageId: number): boolean {
           class="mt-1 text-xs text-(--ui-text-dimmed) flex items-center gap-2"
         >
           <TimeAgo :time="message.createdAt" />
-          <span v-if="message.modelName" class="opacity-70">{{ message.modelName }}</span>
 
           <!-- 操作按钮（非生成状态时显示） -->
           <template v-if="!isMessageStreaming(message) && !isMessageLoading(message)">

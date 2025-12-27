@@ -41,19 +41,19 @@ const isLoading = computed(() => ['pending', 'submitting', 'processing'].include
 const statusInfo = computed(() => {
   switch (status.value) {
     case 'idle':
-      return { text: '未生成', color: 'text-(--ui-text-muted)', icon: 'i-heroicons-photo', showBars: false }
+      return { text: '等待提交', color: 'text-(--ui-text-muted)', icon: 'i-heroicons-sparkles', showBars: false }
     case 'pending':
-      return { text: '等待中', color: 'text-(--ui-warning)', icon: 'i-heroicons-clock', showBars: false }
+      return { text: '排队中...', color: 'text-(--ui-warning)', icon: 'i-heroicons-clock', showBars: false }
     case 'submitting':
-      return { text: '提交中', color: 'text-(--ui-info)', icon: null, showBars: true }
+      return { text: '正在提交...', color: 'text-(--ui-info)', icon: null, showBars: true }
     case 'processing':
-      return { text: progress.value || '生成中', color: 'text-(--ui-primary)', icon: null, showBars: true }
+      return { text: progress.value || '正在创作中...', color: 'text-(--ui-primary)', icon: null, showBars: true }
     case 'success':
       return { text: '已完成', color: 'text-(--ui-success)', icon: 'i-heroicons-check-circle', showBars: false }
     case 'failed':
-      return { text: '失败', color: 'text-(--ui-error)', icon: 'i-heroicons-x-circle', showBars: false }
+      return { text: '生成失败', color: 'text-(--ui-error)', icon: 'i-heroicons-exclamation-triangle', showBars: false }
     default:
-      return { text: '未知', color: 'text-(--ui-text-muted)', icon: 'i-heroicons-question-mark-circle', showBars: false }
+      return { text: '未知状态', color: 'text-(--ui-text-muted)', icon: 'i-heroicons-question-mark-circle', showBars: false }
   }
 })
 
@@ -270,46 +270,47 @@ onUnmounted(() => {
       <!-- 非成功状态显示状态信息 -->
       <div
         v-else
-        class="w-full h-full flex flex-col items-center justify-center p-4"
+        class="w-full h-full flex flex-col p-5"
       >
-        <div class="text-center flex-shrink-0">
+        <!-- 上半部分：图标 + 状态 + 按钮 -->
+        <div class="flex-1 flex flex-col items-center justify-center">
           <!-- 竖线加载动画 -->
           <DrawingLoader
             v-if="statusInfo.showBars"
-            :class="['w-12 h-12 mb-2 mx-auto', statusInfo.color]"
+            :class="['w-10 h-10', statusInfo.color]"
           />
           <!-- 图标 -->
           <UIcon
             v-else-if="statusInfo.icon"
             :name="statusInfo.icon"
-            :class="['w-12 h-12 mb-2', statusInfo.color]"
+            :class="['w-10 h-10', statusInfo.color]"
           />
-          <p :class="['text-sm mb-2', statusInfo.color]">{{ statusInfo.text }}</p>
+          <p :class="['text-sm font-medium mt-3', statusInfo.color]">{{ statusInfo.text }}</p>
 
           <!-- 失败时显示错误信息 -->
-          <p v-if="error && status === 'failed'" class="text-(--ui-error) text-xs leading-relaxed line-clamp-3 px-2 mb-2">
+          <p v-if="error && status === 'failed'" class="text-(--ui-error) text-xs leading-relaxed line-clamp-2 mt-2 max-w-[90%] text-center">
             {{ error }}
           </p>
 
           <!-- 空闲状态显示生成按钮 -->
-          <UButton v-if="status === 'idle'" size="sm" @click="fetchOrCreateTask(true)">
+          <UButton v-if="status === 'idle'" size="sm" class="mt-4" @click="fetchOrCreateTask(true)">
             <UIcon name="i-heroicons-sparkles" class="w-4 h-4 mr-1" />
             生成插图
           </UButton>
 
           <!-- 失败状态显示重试按钮 -->
-          <UButton v-if="status === 'failed'" size="sm" variant="outline" @click="fetchOrCreateTask(true)">
+          <UButton v-if="status === 'failed'" size="sm" variant="outline" class="mt-3" @click="regenerate">
             <UIcon name="i-heroicons-arrow-path" class="w-4 h-4 mr-1" />
             重试
           </UButton>
         </div>
 
-        <!-- 空闲/失败状态显示 uniqueId 和提示词 -->
-        <div v-if="status === 'idle' || status === 'failed'" class="mt-3 w-full max-w-full overflow-hidden">
-          <p class="text-xs text-(--ui-text-dimmed) truncate text-center" :title="params.uniqueId">
+        <!-- 底部：标题和提示词信息 -->
+        <div class="pt-3 border-t border-(--ui-border-muted)">
+          <p class="text-sm font-medium text-(--ui-text) truncate" :title="params.uniqueId">
             {{ params.uniqueId }}
           </p>
-          <p class="text-xs text-(--ui-text-muted) line-clamp-2 text-center mt-1" :title="params.prompt">
+          <p class="text-xs text-(--ui-text-muted) line-clamp-2 leading-relaxed mt-1" :title="params.prompt">
             {{ params.prompt }}
           </p>
         </div>
