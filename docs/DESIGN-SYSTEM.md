@@ -2,6 +2,8 @@
 
 本项目基于 **Fluent 2** 设计理念，追求轻盈、现代、系统感的视觉风格。
 
+提示词来自：https://www.uiprompt.site/zh/styles
+
 ## 设计理念
 
 ### 核心特征
@@ -24,7 +26,7 @@
 
 | 用途 | CSS 变量 | 说明 |
 |-----|---------|------|
-| 主色 | `--ui-primary` | 蓝色系，用于按钮、链接、强调元素 |
+| 主色 | `--ui-primary` | 紫色系 (violet)，用于按钮、链接、强调元素 |
 | 文字 | `--ui-text`、`--ui-text-muted`、`--ui-text-dimmed` | 主文字、次要文字、禁用文字 |
 | 背景 | `--ui-bg`、`--ui-bg-elevated`、`--ui-bg-muted` | 页面背景、卡片背景、输入框背景 |
 | 边框 | `--ui-border`、`--ui-border-muted` | 分割线、输入框边框 |

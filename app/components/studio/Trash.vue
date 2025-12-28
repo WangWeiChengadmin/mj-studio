@@ -107,7 +107,7 @@ function formatDeletedTime(deletedAt: string | null) {
         <div
           v-for="task in tasks"
           :key="task.id"
-          class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)"
+          class="bg-(--ui-bg-elevated) rounded-lg p-4 border border-(--ui-border)"
         >
           <!-- 图片预览 -->
           <div class="aspect-square rounded-lg overflow-hidden bg-(--ui-bg) mb-3">

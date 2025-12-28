@@ -21,21 +21,21 @@ const { loggedIn } = useAuth()
 
         <!-- 特性介绍 -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div class="p-6 rounded-2xl bg-(--ui-bg-elevated) border border-(--ui-border)">
+          <div class="p-6 rounded-lg bg-(--ui-bg-elevated) border border-(--ui-border)">
             <UIcon name="i-heroicons-paint-brush" class="w-10 h-10 text-purple-500 mx-auto mb-4" />
             <h3 class="text-lg font-medium text-(--ui-text) mb-2">AI 绘图</h3>
             <p class="text-sm text-(--ui-text-muted)">
               支持 Midjourney、DALL-E、Flux、Gemini 等多种 AI 绘图模型
             </p>
           </div>
-          <div class="p-6 rounded-2xl bg-(--ui-bg-elevated) border border-(--ui-border)">
+          <div class="p-6 rounded-lg bg-(--ui-bg-elevated) border border-(--ui-border)">
             <UIcon name="i-heroicons-chat-bubble-left-right" class="w-10 h-10 text-blue-500 mx-auto mb-4" />
             <h3 class="text-lg font-medium text-(--ui-text) mb-2">AI 对话</h3>
             <p class="text-sm text-(--ui-text-muted)">
               创建专属 AI 助手，支持自定义系统提示词和对话管理
             </p>
           </div>
-          <div class="p-6 rounded-2xl bg-(--ui-bg-elevated) border border-(--ui-border)">
+          <div class="p-6 rounded-lg bg-(--ui-bg-elevated) border border-(--ui-border)">
             <UIcon name="i-heroicons-server" class="w-10 h-10 text-green-500 mx-auto mb-4" />
             <h3 class="text-lg font-medium text-(--ui-text) mb-2">多上游支持</h3>
             <p class="text-sm text-(--ui-text-muted)">

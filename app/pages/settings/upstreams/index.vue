@@ -108,7 +108,7 @@ const platformLabels: Record<string, string> = {
       <div
         v-for="upstream in upstreams"
         :key="upstream.id"
-        class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) hover:border-(--ui-border-accented) transition-colors cursor-pointer flex flex-col"
+        class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border) hover:border-(--ui-border-accented) transition-colors cursor-pointer flex flex-col"
         @click="router.push(`/settings/upstreams/${upstream.id}`)"
       >
         <!-- 标题行 -->

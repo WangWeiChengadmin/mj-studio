@@ -250,7 +250,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mj-drawing-container my-3 bg-(--ui-bg-elevated) rounded-xl border border-(--ui-border) overflow-hidden max-w-md">
+  <div class="mj-drawing-container my-3 bg-(--ui-bg-elevated) rounded-lg border border-(--ui-border) overflow-hidden max-w-md">
     <!-- 图片区域 -->
     <div
       class="aspect-[4/3] bg-black/10 relative group"

@@ -275,7 +275,7 @@ async function showErrorDetail() {
 </script>
 
 <template>
-  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-xl border border-(--ui-border) overflow-hidden">
+  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-lg border border-(--ui-border) overflow-hidden">
     <!-- 图片预览 -->
     <div class="aspect-square relative" :class="task.resourceUrl && !isBlurred ? 'checkerboard-bg' : 'bg-(--ui-bg-muted)'">
       <img

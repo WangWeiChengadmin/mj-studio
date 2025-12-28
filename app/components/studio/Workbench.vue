@@ -106,7 +106,7 @@ defineExpose({
     <h2 class="text-(--ui-text) text-lg font-medium">创作工作台</h2>
 
     <!-- 标签页切换 -->
-    <div class="flex gap-2 mb-4">
+    <div class="flex gap-2 mb-2">
       <button
         v-for="tab in tabs"
         :key="tab.value"
@@ -144,7 +144,7 @@ defineExpose({
     <!-- 没有视频模型配置时的提示 -->
     <div
       v-if="activeTab === 'video' && !hasVideoModels"
-      class="bg-(--ui-bg-elevated) rounded-2xl p-8 border border-(--ui-border) text-center"
+      class="bg-(--ui-bg-elevated) rounded-lg p-8 border border-(--ui-border) text-center"
     >
       <UIcon name="i-heroicons-video-camera" class="w-12 h-12 text-(--ui-text-dimmed) mx-auto mb-3" />
       <p class="text-(--ui-text-muted) mb-4">暂无视频模型配置</p>

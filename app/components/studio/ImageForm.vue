@@ -223,7 +223,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-6 border border-(--ui-border)">
+  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-lg p-6 border border-(--ui-border)">
       <!-- 模型选择 -->
       <UFormField label="选择模型" class="mb-4">
         <template #label>

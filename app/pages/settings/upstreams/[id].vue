@@ -429,7 +429,7 @@ async function confirmDelete() {
         <input type="password" style="display:none" />
 
         <!-- 基本信息卡片 -->
-        <div class="max-w-2xl bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-4">
+        <div class="max-w-2xl bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border) space-y-4">
           <h2 class="text-lg font-medium text-(--ui-text) mb-4">基本信息</h2>
 
           <UFormField label="配置名称" name="name" required>
@@ -513,7 +513,7 @@ async function confirmDelete() {
         </div>
 
         <!-- 模型配置卡片 -->
-        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border)">
+        <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border)">
           <h2 class="text-lg font-medium text-(--ui-text) mb-4">模型配置</h2>
 
           <UTabs

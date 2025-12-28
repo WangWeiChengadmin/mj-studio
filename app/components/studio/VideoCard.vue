@@ -217,7 +217,7 @@ async function showErrorDetail() {
 </script>
 
 <template>
-  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-xl border border-(--ui-border) overflow-hidden">
+  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-lg border border-(--ui-border) overflow-hidden">
     <!-- 视频预览 -->
     <div class="aspect-square relative bg-(--ui-bg-muted)">
       <!-- 已生成的视频 -->

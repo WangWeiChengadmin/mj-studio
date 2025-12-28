@@ -73,7 +73,7 @@ function toggleMode() {
         </div>
 
         <!-- 表单卡片 -->
-        <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-2xl p-8 border border-(--ui-border) shadow-2xl">
+        <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-lg p-8 border border-(--ui-border) shadow-2xl">
           <h2 class="text-xl font-semibold text-(--ui-text) mb-6 text-center">
             {{ isLogin ? '登录账号' : '注册账号' }}
           </h2>

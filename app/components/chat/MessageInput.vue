@@ -506,7 +506,7 @@ function handleInput(e: Event) {
     <!-- 输入框 -->
     <div
       class="flex gap-2 items-end"
-      :class="{ 'ring-2 ring-(--ui-primary) rounded-xl': isDragging }"
+      :class="{ 'ring-2 ring-(--ui-primary) rounded-lg': isDragging }"
       @dragover="handleDragOver"
       @dragleave="handleDragLeave"
       @drop="handleDrop"
@@ -523,7 +523,7 @@ function handleInput(e: Event) {
       <textarea
         ref="textareaRef"
         :value="props.content"
-        class="flex-1 resize-none bg-(--ui-bg-elevated) border border-(--ui-border) rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-(--ui-primary) min-h-[48px] max-h-[200px]"
+        class="flex-1 resize-none bg-(--ui-bg-elevated) border border-(--ui-border) rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-(--ui-primary) min-h-[48px] max-h-[200px]"
         :placeholder="isDragging ? '松开以上传文件' : '输入消息，Enter 发送，Shift+Enter 换行'"
         rows="1"
         :disabled="disabled || isStreaming"

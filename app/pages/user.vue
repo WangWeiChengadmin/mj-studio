@@ -233,7 +233,7 @@ async function deleteAccount() {
       <!-- 设置内容 -->
       <div v-if="!isLoading" class="space-y-6">
         <!-- 个人信息卡片 -->
-        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-5">
+        <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border) space-y-5">
           <h2 class="text-lg font-medium text-(--ui-text)">个人信息</h2>
 
           <!-- 头像 -->
@@ -291,7 +291,7 @@ async function deleteAccount() {
         </div>
 
         <!-- 修改邮箱 -->
-        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-5">
+        <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border) space-y-5">
           <h2 class="text-lg font-medium text-(--ui-text)">修改邮箱</h2>
           <p class="text-sm text-(--ui-text-muted)">当前邮箱：{{ currentEmail }}</p>
 
@@ -319,7 +319,7 @@ async function deleteAccount() {
         </div>
 
         <!-- 修改密码 -->
-        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border) space-y-5">
+        <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border) space-y-5">
           <h2 class="text-lg font-medium text-(--ui-text)">修改密码</h2>
 
           <UFormField label="当前密码" name="currentPassword">
@@ -354,7 +354,7 @@ async function deleteAccount() {
         </div>
 
         <!-- 危险区域：删除账号 -->
-        <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-red-500/30 space-y-5">
+        <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-red-500/30 space-y-5">
           <h2 class="text-lg font-medium text-red-500">危险区域</h2>
           <p class="text-sm text-(--ui-text-muted)">
             删除账号将永久删除你的所有数据，包括上游配置、AI 模型、绘图任务、助手、对话记录等。此操作不可撤销。

@@ -80,7 +80,7 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
 
     <div v-else class="space-y-6">
       <!-- 对话压缩 Prompt -->
-      <div class="bg-(--ui-bg-elevated) rounded-xl p-6 border border-(--ui-border)">
+      <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border)">
         <div class="flex items-center justify-between mb-3">
           <div>
             <h3 class="text-base font-medium text-(--ui-text)">对话压缩</h3>
@@ -98,7 +98,7 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
       </div>
 
       <!-- 标题生成 Prompt -->
-      <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
+      <div class="bg-(--ui-bg-elevated) rounded-lg p-4 border border-(--ui-border)">
         <div class="flex items-center justify-between mb-3">
           <div>
             <h3 class="font-medium text-(--ui-text)">标题生成</h3>
@@ -116,7 +116,7 @@ function resetToDefault(field: 'compress' | 'title' | 'suggestions') {
       </div>
 
       <!-- 开场白建议 Prompt -->
-      <div class="bg-(--ui-bg-elevated) rounded-xl p-4 border border-(--ui-border)">
+      <div class="bg-(--ui-bg-elevated) rounded-lg p-4 border border-(--ui-border)">
         <div class="flex items-center justify-between mb-3">
           <div>
             <h3 class="font-medium text-(--ui-text)">开场白建议</h3>
