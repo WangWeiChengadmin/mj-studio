@@ -3,7 +3,6 @@ import type { Upstream, Aimodel } from '~/composables/useUpstreams'
 import type { ImageModelType, ApiFormat, ImageModelParams } from '../../shared/types'
 import {
   API_FORMAT_LABELS,
-  MODEL_USAGE_HINTS,
   MODELS_WITHOUT_REFERENCE_IMAGE,
   MODELS_WITH_NEGATIVE_PROMPT,
   MODELS_WITH_SIZE,
@@ -291,12 +290,6 @@ const advancedOptionsCount = computed(() => {
   return count
 })
 
-// 当前模型的使用提示
-const currentModelHint = computed(() => {
-  if (!selectedAimodel.value) return undefined
-  return MODEL_USAGE_HINTS[selectedAimodel.value.modelType as ImageModelType]
-})
-
 // 模型信息模态框状态
 const showModelInfoModal = ref(false)
 
@@ -491,26 +484,6 @@ defineExpose({
           <div class="flex items-center gap-2 text-sm">
             <span class="text-(--ui-text-muted)">模型名称：</span>
             <span class="text-(--ui-text) font-mono">{{ selectedAimodel.modelName }}</span>
-          </div>
-          <div
-            v-if="currentModelHint"
-            class="mt-4 p-3 rounded-lg border"
-            :class="currentModelHint.type === 'warning'
-              ? 'bg-amber-500/10 border-amber-500/30'
-              : 'bg-(--ui-primary)/10 border-(--ui-primary)/30'"
-          >
-            <div class="flex items-start gap-2">
-              <UIcon
-                :name="currentModelHint.type === 'warning' ? 'i-heroicons-exclamation-triangle' : 'i-heroicons-light-bulb'"
-                :class="['w-4 h-4 mt-0.5 shrink-0', currentModelHint.type === 'warning' ? 'text-amber-500' : 'text-(--ui-primary)']"
-              />
-              <p
-                class="text-sm"
-                :class="currentModelHint.type === 'warning' ? 'text-amber-600 dark:text-amber-400' : 'text-(--ui-primary)'"
-              >
-                {{ currentModelHint.text }}
-              </p>
-            </div>
           </div>
         </div>
         <p v-else class="text-(--ui-text-muted) text-sm">请先选择一个模型</p>

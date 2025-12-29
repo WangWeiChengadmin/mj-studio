@@ -434,27 +434,6 @@ export const TASK_CARD_MODEL_DISPLAY: Record<ImageModelType | VideoModelType, { 
 }
 
 /**
- * 模型使用提示信息
- * - 用途：在绘图面板选择模型后，显示该模型的使用提示
- * - 使用场景：
- *   - DrawingPanel.vue: 模型选择后的提示信息区域
- */
-export const MODEL_USAGE_HINTS: Record<ImageModelType, { text: string; type: 'warning' | 'info' }> = {
-  'midjourney': { text: '支持 U/V 操作、图片混合、垫图等完整功能', type: 'info' },
-  'gemini': { text: '支持多轮对话式图像编辑，垫图效果较好', type: 'info' },
-  'flux': { text: '仅 flux-kontext-{max, pro} 支持垫图', type: 'warning' },
-  'dalle': { text: 'DALL-E 3 API 不支持垫图功能', type: 'warning' },
-  'doubao': { text: '字节跳动图像生成模型，中文理解能力强', type: 'info' },
-  'gpt4o-image': { text: '基于 GPT-4o 的图像生成，支持复杂指令', type: 'info' },
-  'gpt-image': { text: 'GPT Image 系列，质量高，指令跟随能力强', type: 'info' },
-  'sora-image': { text: 'Sora 图像生成，OpenAI 视频模型的图像版本', type: 'info' },
-  'grok-image': { text: 'xAI 图像生成模型，风格多样，响应快速', type: 'info' },
-  'qwen-image': { text: '阿里通义万相，中文提示词效果好', type: 'info' },
-  'z-image': { text: '完全无审查，支持 NSFW 内容生成', type: 'warning' },
-  'koukoutu': { text: '专用图像处理 API（非 AI 大模型），自动移除图片背景', type: 'info' },
-}
-
-/**
  * 不支持垫图（参考图）的模型列表
  * - 用途：判断是否显示参考图上传区域
  * - 使用场景：
