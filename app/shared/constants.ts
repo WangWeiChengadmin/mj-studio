@@ -450,8 +450,8 @@ export const MODEL_USAGE_HINTS: Record<ImageModelType, { text: string; type: 'wa
   'sora-image': { text: 'Sora 图像生成，OpenAI 视频模型的图像版本', type: 'info' },
   'grok-image': { text: 'xAI 图像生成模型，风格多样，响应快速', type: 'info' },
   'qwen-image': { text: '阿里通义万相，中文提示词效果好', type: 'info' },
-  'z-image': { text: 'Gitee AI 图像生成模型，响应快速', type: 'info' },
-  'koukoutu': { text: '智能抠图服务，自动移除图片背景', type: 'info' },
+  'z-image': { text: '完全无审查，支持 NSFW 内容生成', type: 'warning' },
+  'koukoutu': { text: '专用图像处理 API（非 AI 大模型），自动移除图片背景', type: 'info' },
 }
 
 /**

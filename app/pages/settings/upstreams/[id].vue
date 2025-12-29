@@ -440,7 +440,7 @@ async function confirmDelete() {
             />
           </UFormField>
 
-          <UFormField label="API地址" name="baseUrl" required>
+          <UFormField label="API地址" name="baseUrl" required hint="无需添加 /v1 后缀，MJ 绘图使用 /mj，视频接口使用 /v1/video 等路径">
             <UInput
               v-model="form.baseUrl"
               type="url"

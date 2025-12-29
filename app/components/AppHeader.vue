@@ -43,6 +43,7 @@ watch(user, (val) => {
 const navItems = [
   { label: '创作', to: '/studio', icon: 'i-heroicons-paint-brush' },
   { label: '对话', to: '/chat', icon: 'i-heroicons-chat-bubble-left-right' },
+  { label: '帮助', to: '/faq', icon: 'i-heroicons-question-mark-circle' },
   { label: '设置', to: '/settings', icon: 'i-heroicons-cog-6-tooth' },
 ]
 

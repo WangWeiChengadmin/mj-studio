@@ -100,7 +100,12 @@ defineExpose({
 
 <template>
   <div class="space-y-4">
-    <h2 class="text-(--ui-text) text-lg font-medium">创作工作台</h2>
+    <div class="flex items-center justify-between">
+      <h2 class="text-(--ui-text) text-lg font-medium">创作工作台</h2>
+      <NuxtLink to="/faq" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors" title="帮助中心">
+        <UIcon name="i-heroicons-question-mark-circle" class="w-5 h-5" />
+      </NuxtLink>
+    </div>
 
     <!-- 标签页切换 -->
     <div class="flex border-b border-(--ui-border)">
