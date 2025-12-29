@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* 深色模式下调整边框颜色，增强与背景的对比度 */
+.dark {
+  --ui-border: var(--color-zinc-700);
+}
+
 /* 炫彩流光动画 */
 @keyframes shimmer {
   0% {

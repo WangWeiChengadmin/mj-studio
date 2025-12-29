@@ -124,7 +124,7 @@ onUnmounted(() => {
 <template>
   <div class="h-[calc(100vh-3.5rem)] flex flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
     <!-- 工作台面板 -->
-    <div class="flex-shrink-0 border-b lg:border-b-0 lg:border-r border-(--ui-border) p-4 lg:w-[380px] lg:overflow-y-auto">
+    <div class="flex-shrink-0 border-b lg:border-b-0 lg:border-r border-(--ui-border) bg-(--ui-bg-elevated) p-4 lg:w-[340px] lg:overflow-y-auto">
       <StudioWorkbench ref="workbenchRef" :upstreams="upstreams" @submit-image="handleImageSubmit" @submit-video="handleVideoSubmit" />
     </div>
 

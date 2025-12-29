@@ -454,9 +454,9 @@ defineExpose({
 </script>
 
 <template>
-  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-lg p-6 border border-(--ui-border)">
-      <!-- 模型选择 -->
-      <UFormField label="选择模型" class="mb-4">
+  <div class="space-y-4">
+    <!-- 模型选择 -->
+    <UFormField label="选择模型">
         <template #label>
           <span class="inline-flex items-center gap-1.5">
             选择模型
@@ -520,8 +520,11 @@ defineExpose({
       </template>
     </UModal>
 
+    <!-- 分隔线 -->
+    <div class="border-t border-(--ui-border)" />
+
     <!-- 参考图上传区 -->
-    <UFormField v-if="supportsReferenceImages" label="参考图 (可选，最多3张)" class="mb-6">
+    <UFormField v-if="supportsReferenceImages" label="参考图 (可选)">
       <template #hint>
         <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，单张最大10MB</span>
       </template>
@@ -562,7 +565,7 @@ defineExpose({
     </UFormField>
 
     <!-- 提示词输入 -->
-    <UFormField label="描述你想要的图片" class="mb-4">
+    <UFormField label="描述你想要的图片">
       <template #label>
         <span class="inline-flex items-center gap-2">
           描述你想要的图片
@@ -587,7 +590,7 @@ defineExpose({
     </UFormField>
 
     <!-- 高级选项折叠区域 -->
-    <UCollapsible v-if="selectedAimodel" class="mb-4">
+    <UCollapsible v-if="selectedAimodel">
       <UButton variant="ghost" block class="justify-between" :ui="{ trailingIconLeadingClass: 'ms-auto' }">
         <span class="text-sm text-(--ui-text-muted)">
           高级选项

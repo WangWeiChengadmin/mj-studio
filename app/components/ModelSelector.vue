@@ -254,7 +254,7 @@ defineExpose({
     >
       <div
         v-if="isOpen && hasModels"
-        class="absolute z-50 max-h-80 overflow-y-auto rounded-lg border border-(--ui-border-accented) bg-(--ui-bg-elevated) shadow-lg"
+        class="absolute z-50 max-h-80 overflow-y-auto rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) shadow-lg"
         :class="[dropUp ? 'bottom-full mb-1' : 'top-full mt-1', dropdownWidth || 'w-80', alignRight ? 'right-0' : 'left-0']"
       >
         <!-- 按上游分组 -->
@@ -283,7 +283,7 @@ defineExpose({
                 isSelected(group.upstreamId, aimodel.id)
                   ? 'bg-(--ui-primary)/10 text-(--ui-primary)'
                   : 'hover:bg-(--ui-bg-accented) text-(--ui-text)',
-                listLayout ? '' : 'border border-(--ui-border-accented) hover:border-(--ui-primary)'
+                listLayout ? '' : 'border border-(--ui-border) hover:border-(--ui-primary)'
               ]"
               @click="handleSelectModel(group.upstreamId, aimodel.id)"
             >

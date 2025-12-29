@@ -103,15 +103,15 @@ defineExpose({
     <h2 class="text-(--ui-text) text-lg font-medium">创作工作台</h2>
 
     <!-- 标签页切换 -->
-    <div class="flex gap-2 mb-2">
+    <div class="flex border-b border-(--ui-border)">
       <button
         v-for="tab in tabs"
         :key="tab.value"
         :class="[
-          'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+          'flex items-center gap-1.5 px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px',
           activeTab === tab.value
-            ? 'bg-(--ui-primary) text-white'
-            : 'bg-(--ui-bg-elevated) text-(--ui-text-muted) hover:text-(--ui-text) hover:bg-(--ui-bg-accented)',
+            ? 'border-(--ui-primary) text-(--ui-primary)'
+            : 'border-transparent text-(--ui-text-muted) hover:text-(--ui-text)',
           tab.value === 'video' && !hasVideoModels ? 'opacity-50 cursor-not-allowed' : ''
         ]"
         :disabled="tab.value === 'video' && !hasVideoModels"

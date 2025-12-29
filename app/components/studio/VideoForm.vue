@@ -228,9 +228,9 @@ defineExpose({
 </script>
 
 <template>
-  <div class="bg-(--ui-bg-elevated) backdrop-blur-sm rounded-lg p-6 border border-(--ui-border)">
+  <div class="space-y-4">
     <!-- 模型选择 -->
-    <UFormField label="选择模型" class="mb-4">
+    <UFormField label="选择模型">
       <template #label>
         <span class="inline-flex items-center gap-1.5">
           选择模型
@@ -274,8 +274,11 @@ defineExpose({
       </template>
     </UModal>
 
+    <!-- 分隔线 -->
+    <div class="border-t border-(--ui-border)" />
+
     <!-- 参考图上传区 -->
-    <UFormField v-if="selectedAimodel" label="参考图 (可选)" class="mb-6">
+    <UFormField v-if="selectedAimodel" label="参考图 (可选)">
       <template #hint>
         <span class="text-(--ui-text-dimmed) text-xs">支持 JPG、PNG，最大10MB</span>
       </template>
@@ -314,7 +317,7 @@ defineExpose({
     </UFormField>
 
     <!-- 提示词输入 -->
-    <UFormField label="描述你想要的视频" class="mb-4">
+    <UFormField label="描述你想要的视频">
       <UTextarea
         v-model="prompt"
         placeholder="例如：一只猫在草地上奔跑，慢动作，电影感"
@@ -325,7 +328,7 @@ defineExpose({
 
     <!-- 即梦：宽高比 + 分辨率 -->
     <template v-if="isJimengModel">
-      <UFormField label="宽高比" class="mb-4">
+      <UFormField label="宽高比">
         <USelect
           v-model="aspectRatio"
           :items="aspectRatioOptions"
@@ -334,7 +337,7 @@ defineExpose({
           class="w-full"
         />
       </UFormField>
-      <UFormField label="分辨率" class="mb-4">
+      <UFormField label="分辨率">
         <USelect
           v-model="size"
           :items="sizeOptions"
@@ -347,7 +350,7 @@ defineExpose({
 
     <!-- Veo：宽高比 + 提示词增强 + 超分 -->
     <template v-if="isVeoModel">
-      <UFormField label="宽高比" class="mb-4">
+      <UFormField label="宽高比">
         <USelect
           v-model="aspectRatio"
           :items="veoAspectRatioOptions"
@@ -356,7 +359,7 @@ defineExpose({
           class="w-full"
         />
       </UFormField>
-      <div class="space-y-4 mb-4">
+      <div class="space-y-4">
         <div class="flex items-center justify-between">
           <div class="flex flex-col">
             <span class="text-sm text-(--ui-text)">提示词增强</span>
@@ -376,7 +379,7 @@ defineExpose({
 
     <!-- Sora：方向 + 分辨率 + 时长 + 水印 + 隐私 -->
     <template v-if="isSoraModel">
-      <UFormField label="方向" class="mb-4">
+      <UFormField label="方向">
         <USelect
           v-model="orientation"
           :items="soraOrientationOptions"
@@ -385,7 +388,7 @@ defineExpose({
           class="w-full"
         />
       </UFormField>
-      <UFormField label="分辨率" class="mb-4">
+      <UFormField label="分辨率">
         <USelect
           v-model="soraSize"
           :items="soraSizeOptions"
@@ -394,7 +397,7 @@ defineExpose({
           class="w-full"
         />
       </UFormField>
-      <UFormField label="时长" class="mb-4">
+      <UFormField label="时长">
         <USelect
           v-model="duration"
           :items="soraDurationOptions"
@@ -403,7 +406,7 @@ defineExpose({
           class="w-full"
         />
       </UFormField>
-      <div class="space-y-4 mb-4">
+      <div class="space-y-4">
         <div class="flex items-center justify-between">
           <div class="flex flex-col">
             <span class="text-sm text-(--ui-text)">添加水印</span>
@@ -423,7 +426,7 @@ defineExpose({
 
     <!-- Grok Video：宽高比（分辨率固定 720P） -->
     <template v-if="isGrokVideoModel">
-      <UFormField label="宽高比" class="mb-4">
+      <UFormField label="宽高比">
         <USelect
           v-model="aspectRatio"
           :items="grokAspectRatioOptions"
@@ -432,7 +435,7 @@ defineExpose({
           class="w-full"
         />
       </UFormField>
-      <UFormField label="分辨率" class="mb-4">
+      <UFormField label="分辨率">
         <UInput value="720P" disabled class="w-full" />
       </UFormField>
     </template>
