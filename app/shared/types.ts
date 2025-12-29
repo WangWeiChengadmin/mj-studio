@@ -28,6 +28,8 @@ export type ImageModelType =
   | 'dalle'        // OpenAI DALL-E
   | 'doubao'       // 字节豆包
   | 'gpt4o-image'  // GPT-4o 图像生成
+  | 'gpt-image'    // GPT Image 系列（gpt-image-1, gpt-image-1.5）
+  | 'sora-image'   // Sora 图像生成
   | 'grok-image'   // xAI Grok 图像生成
   | 'qwen-image'   // 阿里通义万相
   | 'z-image'      // Gitee AI Z-Image
