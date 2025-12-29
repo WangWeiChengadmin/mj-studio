@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import type { Upstream } from '~/composables/useUpstreams'
-import type { ImageModelType, VideoModelType, ApiFormat } from '../../shared/types'
+import type { ImageModelType, VideoModelType, ApiFormat, ImageModelParams, ModelParams } from '../../shared/types'
 
 const props = defineProps<{
   upstreams: Upstream[]
 }>()
 
 const emit = defineEmits<{
-  submitImage: [prompt: string, negativePrompt: string, images: string[], upstreamId: number, aimodelId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
+  submitImage: [data: {
+    prompt: string
+    images: string[]
+    upstreamId: number
+    aimodelId: number
+    modelType: ImageModelType
+    apiFormat: ApiFormat
+    modelName: string
+    modelParams: ImageModelParams
+  }]
   submitVideo: [data: {
     prompt: string
     images: string[]
@@ -16,13 +25,7 @@ const emit = defineEmits<{
     modelType: VideoModelType
     apiFormat: ApiFormat
     modelName: string
-    videoParams: {
-      aspectRatio?: string
-      size?: string
-      enhancePrompt?: boolean
-      enableUpsample?: boolean
-      imageMode?: 'reference' | 'frames' | 'components'
-    }
+    modelParams: ModelParams
   }]
 }>()
 
@@ -44,7 +47,7 @@ const hasVideoModels = computed(() => {
 
 // 图片表单引用
 const imageFormRef = ref<{
-  setContent: (prompt: string | null, negativePrompt: string | null, images: string[]) => void
+  setContent: (prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) => void
 } | null>(null)
 
 // 视频表单引用
@@ -53,17 +56,17 @@ const videoFormRef = ref<{
 } | null>(null)
 
 // 处理图片表单提交
-function handleImageSubmit(
-  prompt: string,
-  negativePrompt: string,
-  images: string[],
-  upstreamId: number,
-  aimodelId: number,
-  modelType: ImageModelType,
-  apiFormat: ApiFormat,
+function handleImageSubmit(data: {
+  prompt: string
+  images: string[]
+  upstreamId: number
+  aimodelId: number
+  modelType: ImageModelType
+  apiFormat: ApiFormat
   modelName: string
-) {
-  emit('submitImage', prompt, negativePrompt, images, upstreamId, aimodelId, modelType, apiFormat, modelName)
+  modelParams: ImageModelParams
+}) {
+  emit('submitImage', data)
 }
 
 // 处理视频表单提交
@@ -75,23 +78,17 @@ function handleVideoSubmit(data: {
   modelType: VideoModelType
   apiFormat: ApiFormat
   modelName: string
-  videoParams: {
-    aspectRatio?: string
-    size?: string
-    enhancePrompt?: boolean
-    enableUpsample?: boolean
-    imageMode?: 'reference' | 'frames' | 'components'
-  }
+  modelParams: ModelParams
 }) {
   emit('submitVideo', data)
 }
 
 // 设置面板内容（供外部调用）
-function setContent(newPrompt: string | null, newNegativePrompt: string | null, images: string[]) {
+function setContent(newPrompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) {
   if (activeTab.value === 'video' && videoFormRef.value) {
     videoFormRef.value.setContent(newPrompt, images)
   } else if (imageFormRef.value) {
-    imageFormRef.value.setContent(newPrompt, newNegativePrompt, images)
+    imageFormRef.value.setContent(newPrompt, modelParams, images)
   }
 }
 

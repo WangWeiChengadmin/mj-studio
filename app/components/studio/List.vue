@@ -2,7 +2,7 @@
 import type { TaskType } from '../../shared/types'
 
 const emit = defineEmits<{
-  copyToPanel: [prompt: string | null, negativePrompt: string | null, images: string[]]
+  copyToPanel: [prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]]
 }>()
 
 const toast = useToast()
@@ -241,7 +241,7 @@ function handlePageChange() {
             @retry="handleRetry(task.id)"
             @cancel="handleCancel(task.id)"
             @blur="handleBlur(task.id, $event)"
-            @copy-to-panel="(prompt, negativePrompt, images) => emit('copyToPanel', prompt, negativePrompt, images)"
+            @copy-to-panel="(prompt, modelParams, images) => emit('copyToPanel', prompt, modelParams, images)"
           />
         </template>
       </div>

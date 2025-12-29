@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Upstream, Aimodel } from '~/composables/useUpstreams'
-import type { VideoModelType, ApiFormat } from '../../shared/types'
+import type { VideoModelType, ApiFormat, ModelParams } from '../../shared/types'
 import {
   API_FORMAT_LABELS,
   MAX_REFERENCE_IMAGE_SIZE_BYTES,
@@ -20,13 +20,7 @@ const emit = defineEmits<{
     modelType: VideoModelType
     apiFormat: ApiFormat
     modelName: string
-    videoParams: {
-      aspectRatio?: string
-      size?: string
-      enhancePrompt?: boolean
-      enableUpsample?: boolean
-      imageMode?: 'reference' | 'frames' | 'components'
-    }
+    modelParams: ModelParams
   }]
 }>()
 
@@ -44,8 +38,14 @@ const aspectRatio = ref('16:9')
 const size = ref('1080P')
 const enhancePrompt = ref(true)
 const enableUpsample = ref(false)
+// Sora 参数
+const orientation = ref<'landscape' | 'portrait'>('landscape')
+const soraSize = ref<'small' | 'large'>('small')
+const duration = ref(10)
+const watermark = ref(false)
+const soraPrivate = ref(false)
 
-// 宽高比选项
+// 宽高比选项（即梦通用）
 const aspectRatioOptions = [
   { label: '16:9 (横屏)', value: '16:9' },
   { label: '9:16 (竖屏)', value: '9:16' },
@@ -60,6 +60,27 @@ const sizeOptions = [
   { label: '1080P', value: '1080P' },
   { label: '1280x720', value: '1280x720' },
   { label: '720x1280', value: '720x1280' },
+]
+
+// Sora 选项
+const soraOrientationOptions = [
+  { label: '横屏', value: 'landscape' },
+  { label: '竖屏', value: 'portrait' },
+]
+const soraSizeOptions = [
+  { label: '标准 (720p)', value: 'small' },
+  { label: '高清', value: 'large' },
+]
+const soraDurationOptions = [
+  { label: '10 秒', value: 10 },
+  { label: '15 秒', value: 15 },
+]
+
+// Grok Video 宽高比选项
+const grokAspectRatioOptions = [
+  { label: '3:2 (横屏)', value: '3:2' },
+  { label: '2:3 (竖屏)', value: '2:3' },
+  { label: '1:1 (方形)', value: '1:1' },
 ]
 
 // 加载用户设置
@@ -80,15 +101,11 @@ const selectedAimodel = computed((): Aimodel | undefined => {
   return modelSelectorRef.value?.selectedAimodel
 })
 
-// 判断是否是即梦模型
-const isJimengModel = computed(() => {
-  return selectedAimodel.value?.modelType === 'jimeng-video'
-})
-
-// 判断是否是 Veo 模型
-const isVeoModel = computed(() => {
-  return selectedAimodel.value?.modelType === 'veo'
-})
+// 判断模型类型
+const isJimengModel = computed(() => selectedAimodel.value?.modelType === 'jimeng-video')
+const isVeoModel = computed(() => selectedAimodel.value?.modelType === 'veo')
+const isSoraModel = computed(() => selectedAimodel.value?.modelType === 'sora')
+const isGrokVideoModel = computed(() => selectedAimodel.value?.modelType === 'grok-video')
 
 // Veo 宽高比选项（只有 16:9 和 9:16）
 const veoAspectRatioOptions = aspectRatioOptions.filter(o => ['16:9', '9:16'].includes(o.value))
@@ -154,21 +171,33 @@ async function handleSubmit() {
 
   isSubmitting.value = true
   try {
-    const videoParams: any = {
-      aspectRatio: isVeoModel.value
-        ? (veoAspectRatioOptions.some(o => o.value === aspectRatio.value) ? aspectRatio.value : '16:9')
-        : aspectRatio.value,
-    }
+    // 根据模型类型构建 modelParams
+    let modelParams: ModelParams = {}
 
-    // 即梦特有参数
     if (isJimengModel.value) {
-      videoParams.size = size.value
-    }
-
-    // Veo 特有参数
-    if (isVeoModel.value) {
-      videoParams.enhancePrompt = enhancePrompt.value
-      videoParams.enableUpsample = enableUpsample.value
+      modelParams = {
+        aspectRatio: aspectRatio.value,
+        size: size.value,
+      }
+    } else if (isVeoModel.value) {
+      modelParams = {
+        aspectRatio: veoAspectRatioOptions.some(o => o.value === aspectRatio.value) ? aspectRatio.value : '16:9',
+        enhancePrompt: enhancePrompt.value,
+        enableUpsample: enableUpsample.value,
+      }
+    } else if (isSoraModel.value) {
+      modelParams = {
+        orientation: orientation.value,
+        size: soraSize.value,
+        duration: duration.value,
+        watermark: watermark.value,
+        private: soraPrivate.value,
+      }
+    } else if (isGrokVideoModel.value) {
+      modelParams = {
+        aspectRatio: grokAspectRatioOptions.some(o => o.value === aspectRatio.value) ? aspectRatio.value : '3:2',
+        size: '720P',
+      }
     }
 
     emit('submit', {
@@ -179,7 +208,7 @@ async function handleSubmit() {
       modelType: selectedAimodel.value.modelType as VideoModelType,
       apiFormat: selectedAimodel.value.apiFormat,
       modelName: selectedAimodel.value.modelName,
-      videoParams,
+      modelParams,
     })
   } finally {
     isSubmitting.value = false
@@ -294,45 +323,119 @@ defineExpose({
       />
     </UFormField>
 
-    <!-- 宽高比选择 -->
-    <UFormField v-if="selectedAimodel" label="宽高比" class="mb-4">
-      <USelect
-        v-model="aspectRatio"
-        :items="isVeoModel ? veoAspectRatioOptions : aspectRatioOptions"
-        value-key="value"
-        label-key="label"
-        class="w-full"
-      />
-    </UFormField>
+    <!-- 即梦：宽高比 + 分辨率 -->
+    <template v-if="isJimengModel">
+      <UFormField label="宽高比" class="mb-4">
+        <USelect
+          v-model="aspectRatio"
+          :items="aspectRatioOptions"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="分辨率" class="mb-4">
+        <USelect
+          v-model="size"
+          :items="sizeOptions"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+    </template>
 
-    <!-- 即梦特有参数：分辨率 -->
-    <UFormField v-if="isJimengModel" label="分辨率" class="mb-4">
-      <USelect
-        v-model="size"
-        :items="sizeOptions"
-        value-key="value"
-        label-key="label"
-        class="w-full"
-      />
-    </UFormField>
+    <!-- Veo：宽高比 + 提示词增强 + 超分 -->
+    <template v-if="isVeoModel">
+      <UFormField label="宽高比" class="mb-4">
+        <USelect
+          v-model="aspectRatio"
+          :items="veoAspectRatioOptions"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+      <div class="space-y-4 mb-4">
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="text-sm text-(--ui-text)">提示词增强</span>
+            <span class="text-xs text-(--ui-text-dimmed)">自动优化和翻译提示词</span>
+          </div>
+          <USwitch v-model="enhancePrompt" />
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="text-sm text-(--ui-text)">超分辨率</span>
+            <span class="text-xs text-(--ui-text-dimmed)">提升视频画质（耗时更长）</span>
+          </div>
+          <USwitch v-model="enableUpsample" />
+        </div>
+      </div>
+    </template>
 
-    <!-- Veo 特有参数 -->
-    <div v-if="isVeoModel" class="space-y-4 mb-4">
-      <div class="flex items-center justify-between">
-        <div class="flex flex-col">
-          <span class="text-sm text-(--ui-text)">提示词增强</span>
-          <span class="text-xs text-(--ui-text-dimmed)">自动优化和翻译提示词</span>
+    <!-- Sora：方向 + 分辨率 + 时长 + 水印 + 隐私 -->
+    <template v-if="isSoraModel">
+      <UFormField label="方向" class="mb-4">
+        <USelect
+          v-model="orientation"
+          :items="soraOrientationOptions"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="分辨率" class="mb-4">
+        <USelect
+          v-model="soraSize"
+          :items="soraSizeOptions"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="时长" class="mb-4">
+        <USelect
+          v-model="duration"
+          :items="soraDurationOptions"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+      <div class="space-y-4 mb-4">
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="text-sm text-(--ui-text)">添加水印</span>
+            <span class="text-xs text-(--ui-text-dimmed)">在视频上添加水印</span>
+          </div>
+          <USwitch v-model="watermark" />
         </div>
-        <USwitch v-model="enhancePrompt" />
-      </div>
-      <div class="flex items-center justify-between">
-        <div class="flex flex-col">
-          <span class="text-sm text-(--ui-text)">超分辨率</span>
-          <span class="text-xs text-(--ui-text-dimmed)">提升视频画质（耗时更长）</span>
+        <div class="flex items-center justify-between">
+          <div class="flex flex-col">
+            <span class="text-sm text-(--ui-text)">隐私模式</span>
+            <span class="text-xs text-(--ui-text-dimmed)">视频不公开</span>
+          </div>
+          <USwitch v-model="soraPrivate" />
         </div>
-        <USwitch v-model="enableUpsample" />
       </div>
-    </div>
+    </template>
+
+    <!-- Grok Video：宽高比（分辨率固定 720P） -->
+    <template v-if="isGrokVideoModel">
+      <UFormField label="宽高比" class="mb-4">
+        <USelect
+          v-model="aspectRatio"
+          :items="grokAspectRatioOptions"
+          value-key="value"
+          label-key="label"
+          class="w-full"
+        />
+      </UFormField>
+      <UFormField label="分辨率" class="mb-4">
+        <UInput value="720P" disabled class="w-full" />
+      </UFormField>
+    </template>
 
     <!-- 提交按钮 -->
     <UButton

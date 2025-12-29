@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Upstream, Aimodel } from '~/composables/useUpstreams'
-import type { ImageModelType, ApiFormat } from '../../shared/types'
+import type { ImageModelType, ApiFormat, ImageModelParams } from '../../shared/types'
 import {
   API_FORMAT_LABELS,
   MODEL_USAGE_HINTS,
@@ -16,7 +16,16 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [prompt: string, negativePrompt: string, images: string[], upstreamId: number, aimodelId: number, modelType: ImageModelType, apiFormat: ApiFormat, modelName: string]
+  submit: [data: {
+    prompt: string
+    images: string[]
+    upstreamId: number
+    aimodelId: number
+    modelType: ImageModelType
+    apiFormat: ApiFormat
+    modelName: string
+    modelParams: ImageModelParams
+  }]
 }>()
 
 const toast = useToast()
@@ -192,27 +201,32 @@ async function handleSubmit() {
   isSubmitting.value = true
   try {
     const imagesToSubmit = supportsReferenceImages.value ? referenceImages.value : []
-    const negativePromptToSubmit = supportsNegativePrompt.value ? negativePrompt.value : ''
-    emit(
-      'submit',
-      prompt.value,
-      negativePromptToSubmit,
-      imagesToSubmit,
-      selectedUpstreamId.value,
-      selectedAimodelId.value,
-      selectedAimodel.value.modelType as ImageModelType,
-      selectedAimodel.value.apiFormat,
-      selectedAimodel.value.modelName
-    )
+
+    // 构建 modelParams
+    const modelParams: ImageModelParams = {}
+    if (supportsNegativePrompt.value && negativePrompt.value) {
+      modelParams.negativePrompt = negativePrompt.value
+    }
+
+    emit('submit', {
+      prompt: prompt.value,
+      images: imagesToSubmit,
+      upstreamId: selectedUpstreamId.value,
+      aimodelId: selectedAimodelId.value,
+      modelType: selectedAimodel.value.modelType as ImageModelType,
+      apiFormat: selectedAimodel.value.apiFormat,
+      modelName: selectedAimodel.value.modelName,
+      modelParams,
+    })
   } finally {
     isSubmitting.value = false
   }
 }
 
 // 设置面板内容（供外部调用）
-function setContent(newPrompt: string | null, newNegativePrompt: string | null, images: string[]) {
+function setContent(newPrompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) {
   prompt.value = newPrompt || ''
-  negativePrompt.value = newNegativePrompt || ''
+  negativePrompt.value = (modelParams?.negativePrompt as string) || ''
   referenceImages.value = images.slice(0, MAX_REFERENCE_IMAGE_COUNT)
 }
 

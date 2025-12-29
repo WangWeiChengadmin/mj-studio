@@ -215,7 +215,7 @@ docs/                         # 详细设计文档
 
 - `tasks.resourceUrl`: 任务产物的本地 URL（图片或视频），替代原来的 `imageUrl`
 - `tasks.taskType`: 任务类型（`image` 或 `video`）
-- `task_video`: 视频任务扩展表，存储视频特有参数（宽高比、分辨率等）
+- `tasks.modelParams`: 模型专用参数（JSON），存储各模型的特有参数（如 negativePrompt、aspectRatio 等）
 
 ### 资源上传流程
 
@@ -427,6 +427,7 @@ pnpm db:migrate
 - **禁止手动修改 meta 文件夹**：`_journal.json` 和 `*_snapshot.json` 由工具自动维护
 - **snapshot 文件的作用**：记录每次迁移后的完整 schema 状态，用于生成增量迁移
 - **自动迁移**：应用启动时通过 Nitro plugin (`server/plugins/migrate.ts`) 自动执行迁移
+- **SQLite 版本**：项目使用的 SQLite 支持 `ALTER TABLE ... DROP COLUMN`（3.35.0+），可直接删除列
 
 ### 处理需要交互的迁移（重命名/删除列）
 

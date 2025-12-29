@@ -27,10 +27,15 @@ interface VideoCreateParams {
   model: string
   prompt: string
   aspect_ratio?: string
-  size?: string            // 即梦: 分辨率 720x1280/1280x720/1080P
+  size?: string            // 即梦/Sora: 分辨率
   enhance_prompt?: boolean // Veo: 提示词增强
   enable_upsample?: boolean // Veo: 超分辨率
   images?: string[]        // 参考图 Base64 数组
+  // Sora 专用参数
+  orientation?: 'portrait' | 'landscape'
+  duration?: number
+  watermark?: boolean
+  private?: boolean
 }
 
 /**
@@ -174,6 +179,11 @@ export function createVideoUnifiedService(baseUrl: string, apiKey: string) {
     if (params.enhance_prompt !== undefined) body.enhance_prompt = params.enhance_prompt
     if (params.enable_upsample !== undefined) body.enable_upsample = params.enable_upsample
     if (params.images && params.images.length > 0) body.images = params.images
+    // Sora 专用参数
+    if (params.orientation) body.orientation = params.orientation
+    if (params.duration) body.duration = params.duration
+    if (params.watermark !== undefined) body.watermark = params.watermark
+    if (params.private !== undefined) body.private = params.private
 
     if (taskId) {
       logRequest(taskId, { url, method: 'POST', headers, body })

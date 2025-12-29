@@ -1,6 +1,7 @@
 // 任务服务层 - 管理任务的CRUD和异步提交
 import { db } from '../database'
-import { tasks, upstreams, aimodels, taskVideo, type Task, type TaskStatus, type TaskType, type Upstream, type Aimodel, type ModelType, type ApiFormat, type TaskVideo, type NewTaskVideo } from '../database/schema'
+import { tasks, upstreams, aimodels, type Task, type TaskStatus, type TaskType, type Upstream, type Aimodel, type ModelType, type ApiFormat } from '../database/schema'
+import type { ModelParams, ImageModelParams } from '../../app/shared/types'
 import { eq, desc, isNull, isNotNull, and, inArray, sql, like, or } from 'drizzle-orm'
 import { createMJService, type MJTaskResponse } from './mj'
 import { createGeminiService } from './gemini'
@@ -49,15 +50,6 @@ export function useTaskService() {
     }).filter(Boolean) as string[]
   }
 
-  // 视频任务参数类型
-  interface VideoParams {
-    aspectRatio?: string
-    size?: string            // 即梦专用
-    enhancePrompt?: boolean  // Veo 专用
-    enableUpsample?: boolean // Veo 专用
-    imageMode?: 'reference' | 'frames' | 'components' // Veo 专用
-  }
-
   // 创建任务（仅保存到数据库）
   async function createTask(data: {
     userId: number
@@ -68,13 +60,12 @@ export function useTaskService() {
     apiFormat: ApiFormat
     modelName: string
     prompt?: string
-    negativePrompt?: string
+    modelParams?: ModelParams
     images?: string[]
     type?: 'imagine' | 'blend'
     isBlurred?: boolean
     uniqueId?: string
     sourceType?: 'workbench' | 'chat'
-    videoParams?: VideoParams
   }): Promise<Task> {
     const taskType = data.taskType ?? 'image'
 
@@ -87,7 +78,7 @@ export function useTaskService() {
       apiFormat: data.apiFormat,
       modelName: data.modelName,
       prompt: data.prompt ?? null,
-      negativePrompt: data.negativePrompt ?? null,
+      modelParams: data.modelParams ? JSON.stringify(data.modelParams) : null,
       images: data.images ?? [],
       type: data.type ?? 'imagine',
       status: 'pending',
@@ -95,18 +86,6 @@ export function useTaskService() {
       uniqueId: data.uniqueId ?? null,
       sourceType: data.sourceType ?? 'workbench',
     }).returning()
-
-    // 如果是视频任务，创建扩展记录
-    if (taskType === 'video' && data.videoParams) {
-      await db.insert(taskVideo).values({
-        taskId: task.id,
-        aspectRatio: data.videoParams.aspectRatio ?? null,
-        size: data.videoParams.size ?? null,
-        enhancePrompt: data.videoParams.enhancePrompt ?? null,
-        enableUpsample: data.videoParams.enableUpsample ?? null,
-        imageMode: data.videoParams.imageMode ?? null,
-      })
-    }
 
     return task
   }
@@ -502,13 +481,16 @@ export function useTaskService() {
     const dalle = createDalleService(upstream.baseUrl, getApiKey(upstream, aimodel))
     const modelName = task.modelName || DEFAULT_MODEL_NAMES.dalle
 
+    // 解析 modelParams
+    const modelParams: ImageModelParams = task.modelParams ? JSON.parse(task.modelParams) : {}
+
     try {
       let result: GenerateResult
       if (task.images && task.images.length > 0) {
         const base64Images = convertImagesToBase64(task.images)
-        result = await dalle.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal, task.negativePrompt ?? undefined)
+        result = await dalle.generateImageWithRef(task.prompt ?? '', base64Images, modelName, task.id, signal, modelParams)
       } else {
-        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal, task.negativePrompt ?? undefined)
+        result = await dalle.generateImage(task.prompt ?? '', modelName, task.id, signal, modelParams)
       }
       await handleSyncResult(task, upstream, aimodel, result)
     } catch (error: any) {
@@ -627,10 +609,8 @@ export function useTaskService() {
     const videoService = createVideoUnifiedService(upstream.baseUrl, getApiKey(upstream, aimodel))
 
     try {
-      // 获取视频任务的扩展参数
-      const videoInfo = await db.query.taskVideo.findFirst({
-        where: eq(taskVideo.taskId, task.id),
-      })
+      // 解析 modelParams
+      const modelParams = task.modelParams ? JSON.parse(task.modelParams) : {}
 
       // 构建请求参数
       const params: VideoCreateParams = {
@@ -638,12 +618,25 @@ export function useTaskService() {
         prompt: task.prompt ?? '',
       }
 
-      // 添加视频扩展参数
-      if (videoInfo) {
-        if (videoInfo.aspectRatio) params.aspect_ratio = videoInfo.aspectRatio
-        if (videoInfo.size) params.size = videoInfo.size
-        if (videoInfo.enhancePrompt !== null) params.enhance_prompt = videoInfo.enhancePrompt
-        if (videoInfo.enableUpsample !== null) params.enable_upsample = videoInfo.enableUpsample
+      // 根据模型类型添加参数
+      const modelType = aimodel.modelType
+
+      if (modelType === 'jimeng-video') {
+        if (modelParams.aspectRatio) params.aspect_ratio = modelParams.aspectRatio
+        if (modelParams.size) params.size = modelParams.size
+      } else if (modelType === 'veo') {
+        if (modelParams.aspectRatio) params.aspect_ratio = modelParams.aspectRatio
+        if (modelParams.enhancePrompt !== undefined) params.enhance_prompt = modelParams.enhancePrompt
+        if (modelParams.enableUpsample !== undefined) params.enable_upsample = modelParams.enableUpsample
+      } else if (modelType === 'sora') {
+        if (modelParams.orientation) params.orientation = modelParams.orientation
+        if (modelParams.size) params.size = modelParams.size
+        if (modelParams.duration) params.duration = modelParams.duration
+        if (modelParams.watermark !== undefined) params.watermark = modelParams.watermark
+        if (modelParams.private !== undefined) params.private = modelParams.private
+      } else if (modelType === 'grok-video') {
+        if (modelParams.aspectRatio) params.aspect_ratio = modelParams.aspectRatio
+        if (modelParams.size) params.size = modelParams.size
       }
 
       // 参考图（转换为 Base64）
@@ -821,13 +814,6 @@ export function useTaskService() {
         await updateEstimatedTime(upstream, aimodel, task, task.createdAt)
       }
 
-      // 更新视频扩展表中的增强提示词
-      if (result.enhanced_prompt) {
-        await db.update(taskVideo)
-          .set({ enhancedPrompt: result.enhanced_prompt })
-          .where(eq(taskVideo.taskId, task.id))
-      }
-
       // 计算进度显示
       let progress: string | null = null
       if (status === 'success') {
@@ -843,7 +829,7 @@ export function useTaskService() {
         error: result.error || (status === 'failed' ? '视频生成失败' : null),
       })
     } catch (error: any) {
-      console.error('同步视频任务状态失败:', error.message)
+      console.error('同步视频任务状态失败:', error.message, error.stack)
       return task
     }
   }

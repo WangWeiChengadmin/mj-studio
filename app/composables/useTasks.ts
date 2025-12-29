@@ -19,7 +19,7 @@ export interface Task {
   modelName: string
   upstream?: TaskUpstreamSummary // 精简的上游配置
   prompt: string | null
-  negativePrompt: string | null
+  modelParams: Record<string, unknown> | null  // 模型专用参数（JSON）
   images: string[]
   type: string
   status: 'pending' | 'submitting' | 'processing' | 'success' | 'failed' | 'cancelled'

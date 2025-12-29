@@ -82,7 +82,7 @@ export const tasks = sqliteTable('tasks', {
   apiFormat: text('api_format').$type<ApiFormat>().notNull(), // 使用的请求格式（冗余，便于查询）
   modelName: text('model_name').notNull(), // 实际使用的模型名称（冗余，便于查询）
   prompt: text('prompt'),
-  negativePrompt: text('negative_prompt'), // 负面提示词
+  modelParams: text('model_params'), // 模型专用参数（JSON）
   images: text('images', { mode: 'json' }).$type<string[]>().default([]),
   type: text('type').notNull().default('imagine'), // imagine | blend（图片任务专用）
   status: text('status').$type<TaskStatus>().notNull().default('pending'),
@@ -107,34 +107,6 @@ export const tasks = sqliteTable('tasks', {
 
 export type Task = typeof tasks.$inferSelect
 export type NewTask = typeof tasks.$inferInsert
-
-// 视频任务扩展表（存储视频任务特有参数）
-export const taskVideo = sqliteTable('task_video', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  taskId: integer('task_id').notNull().unique(), // 关联 tasks 表
-
-  // 通用参数
-  aspectRatio: text('aspect_ratio'), // 宽高比：16:9, 9:16, 4:3 等
-
-  // 即梦特有
-  size: text('size'), // 分辨率：720x1280, 1280x720, 1080P
-
-  // Veo 特有
-  enhancePrompt: integer('enhance_prompt', { mode: 'boolean' }), // 中文转英文
-  enableUpsample: integer('enable_upsample', { mode: 'boolean' }), // 超分
-
-  // Veo 图片模式（按模型变体解释）
-  // reference: 通用参考图，frames: 首帧+尾帧，components: 素材合成
-  imageMode: text('image_mode').$type<'reference' | 'frames' | 'components'>(),
-
-  // 上游返回的增强提示词
-  enhancedPrompt: text('enhanced_prompt'),
-
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
-})
-
-export type TaskVideo = typeof taskVideo.$inferSelect
-export type NewTaskVideo = typeof taskVideo.$inferInsert
 
 // ==================== 对话功能相关表 ====================
 

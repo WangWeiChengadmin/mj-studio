@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const {
     taskType = 'image',  // 任务类型：image | video
     prompt,
-    negativePrompt,
+    modelParams,  // 模型专用参数（JSON）
     images = [],
     type = 'imagine',
     upstreamId,
@@ -22,7 +22,6 @@ export default defineEventHandler(async (event) => {
     modelType,
     apiFormat,
     modelName,
-    videoParams,  // 视频任务扩展参数
   } = body
 
   // 验证上游配置
@@ -144,11 +143,10 @@ export default defineEventHandler(async (event) => {
     apiFormat,
     modelName: modelName || aimodel.modelName,
     prompt,
-    negativePrompt,
+    modelParams,
     images: images,
     type,
     isBlurred: blurByDefault ?? true,
-    videoParams: taskType === 'video' ? videoParams : undefined,
   })
 
   // 2. 异步提交到对应的生成服务（不阻塞响应）

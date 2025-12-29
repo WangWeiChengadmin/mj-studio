@@ -209,6 +209,96 @@ export interface ApiKeyConfig {
   key: string
 }
 
+// ==================== 模型参数类型 ====================
+
+/**
+ * 生图模型参数
+ * - 适用于 MJ-Proxy、DALL-E、Gemini、OpenAI Chat 等格式
+ */
+export interface ImageModelParams {
+  /** 负面提示词（MJ、Flux） */
+  negativePrompt?: string
+  /** 尺寸：1024x1024 等（DALL-E、GPT-Image、豆包） */
+  size?: string
+  /** 宽高比：16:9 等（Flux） */
+  aspectRatio?: string
+  /** 生成数量：1-10 */
+  n?: number
+  /** 随机种子（豆包） */
+  seed?: number
+  /** 质量（DALL-E 3） */
+  quality?: 'standard' | 'hd'
+  /** 风格（DALL-E 3） */
+  style?: 'vivid' | 'natural'
+  /** 提示词相关度：1-10（豆包） */
+  guidanceScale?: number
+  /** 水印（豆包） */
+  watermark?: boolean
+  /** 机器人类型（MJ） */
+  botType?: 'MID_JOURNEY' | 'NIJI_JOURNEY'
+}
+
+/**
+ * 即梦视频参数
+ */
+export interface JimengVideoParams {
+  /** 宽高比：16:9, 9:16, 4:3, 3:4, 1:1, 21:9 */
+  aspectRatio?: string
+  /** 分辨率：1080P、1280x720、720x1280 */
+  size?: string
+}
+
+/**
+ * Veo 视频参数
+ */
+export interface VeoVideoParams {
+  /** 宽高比：16:9, 9:16 */
+  aspectRatio?: string
+  /** 提示词增强 */
+  enhancePrompt?: boolean
+  /** 超分辨率 */
+  enableUpsample?: boolean
+  /** 图片模式 */
+  imageMode?: 'reference' | 'frames' | 'components'
+}
+
+/**
+ * Sora 视频参数
+ */
+export interface SoraVideoParams {
+  /** 方向（替代宽高比） */
+  orientation?: 'portrait' | 'landscape'
+  /** 分辨率（必填） */
+  size: 'small' | 'large'
+  /** 时长：10、15 等 */
+  duration?: number
+  /** 水印 */
+  watermark?: boolean
+  /** 隐私模式 */
+  private?: boolean
+}
+
+/**
+ * Grok Video 参数
+ */
+export interface GrokVideoParams {
+  /** 宽高比：2:3, 3:2, 1:1 */
+  aspectRatio?: string
+  /** 分辨率：720P */
+  size?: string
+}
+
+/**
+ * 模型参数联合类型
+ * - 使用场景：任务创建、表单提交
+ */
+export type ModelParams =
+  | ImageModelParams
+  | JimengVideoParams
+  | VeoVideoParams
+  | SoraVideoParams
+  | GrokVideoParams
+
 // ==================== 模型类型配置接口 ====================
 
 /**

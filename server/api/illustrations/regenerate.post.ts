@@ -83,6 +83,7 @@ export default defineEventHandler(async (event) => {
   )
 
   // 3. 创建新任务
+  const modelParams = negative?.trim() ? { negativePrompt: negative.trim() } : undefined
   const task = await taskService.createTask({
     userId: user.id,
     upstreamId: upstream.id,
@@ -91,7 +92,7 @@ export default defineEventHandler(async (event) => {
     apiFormat: aimodel.apiFormat,
     modelName: aimodel.modelName,
     prompt: prompt.trim(),
-    negativePrompt: negative?.trim() || null,
+    modelParams,
     images: [],
     type: 'imagine',
     isBlurred: blurByDefault ?? true,

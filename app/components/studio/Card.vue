@@ -19,7 +19,7 @@ const emit = defineEmits<{
   retry: []
   cancel: []
   blur: [isBlurred: boolean]
-  copyToPanel: [prompt: string | null, negativePrompt: string | null, images: string[]]
+  copyToPanel: [prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]]
 }>()
 
 const isActioning = ref(false)
@@ -391,7 +391,7 @@ async function showErrorDetail() {
         <button
           class="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-colors"
           title="复制到工作台"
-          @click="emit('copyToPanel', task.prompt, task.negativePrompt, task.images)"
+          @click="emit('copyToPanel', task.prompt, task.modelParams, task.images)"
         >
           <UIcon name="i-heroicons-document-duplicate" class="w-4 h-4 text-white" />
         </button>

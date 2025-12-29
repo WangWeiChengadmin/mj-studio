@@ -22,6 +22,13 @@
       "when": 1766861577981,
       "tag": "0002_video-support",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1766974554208,
+      "tag": "0003_model-params-refactor",
+      "breakpoints": true
     }
   ]
 }

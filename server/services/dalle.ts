@@ -6,6 +6,7 @@
 //   - Flux: POST /v1/images/edits (multipart/form-data, image 为文件)
 
 import type { GenerateResult } from './types'
+import type { ImageModelParams } from '../../app/shared/types'
 import { logRequest, logResponse } from './logger'
 import { classifyFetchError, ERROR_MESSAGES } from './errorClassifier'
 import { DEFAULT_MODEL_NAMES } from '../../app/shared/constants'
@@ -53,7 +54,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // 文生图
-  async function generateImage(prompt: string, modelName: string = DEFAULT_MODEL_NAMES.dalle, taskId?: number, signal?: AbortSignal, negativePrompt?: string): Promise<GenerateResult> {
+  async function generateImage(prompt: string, modelName: string = DEFAULT_MODEL_NAMES.dalle, taskId?: number, signal?: AbortSignal, modelParams?: ImageModelParams): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/images/generations`
     const body: Record<string, any> = {
       model: modelName,
@@ -64,8 +65,8 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     }
 
     // 添加负面提示词（如果有）
-    if (negativePrompt) {
-      body.negative_prompt = negativePrompt
+    if (modelParams?.negativePrompt) {
+      body.negative_prompt = modelParams.negativePrompt
     }
 
     // 记录请求
@@ -112,16 +113,16 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // 垫图
-  async function generateImageWithRef(prompt: string, images: string[], modelName: string = DEFAULT_MODEL_NAMES.dalle, taskId?: number, signal?: AbortSignal, negativePrompt?: string): Promise<GenerateResult> {
+  async function generateImageWithRef(prompt: string, images: string[], modelName: string = DEFAULT_MODEL_NAMES.dalle, taskId?: number, signal?: AbortSignal, modelParams?: ImageModelParams): Promise<GenerateResult> {
     if (images.length === 0) {
-      return generateImage(prompt, modelName, taskId, signal, negativePrompt)
+      return generateImage(prompt, modelName, taskId, signal, modelParams)
     }
 
     const imageDataUrl = images[0]
 
     // Flux 模型：使用 /v1/images/edits 端点和 multipart/form-data
     if (isFluxModel(modelName)) {
-      return generateImageWithRefFlux(prompt, imageDataUrl, modelName, taskId, signal, negativePrompt)
+      return generateImageWithRefFlux(prompt, imageDataUrl, modelName, taskId, signal, modelParams)
     }
 
     // 豆包和其他模型：使用 /v1/images/generations 端点和 JSON
@@ -152,8 +153,8 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     }
 
     // 添加负面提示词（如果有）
-    if (negativePrompt) {
-      body.negative_prompt = negativePrompt
+    if (modelParams?.negativePrompt) {
+      body.negative_prompt = modelParams.negativePrompt
     }
 
     // 记录请求（图片数据截断）
@@ -205,7 +206,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
   }
 
   // Flux 专用垫图：使用 multipart/form-data
-  async function generateImageWithRefFlux(prompt: string, imageDataUrl: string, modelName: string, taskId?: number, signal?: AbortSignal, negativePrompt?: string): Promise<GenerateResult> {
+  async function generateImageWithRefFlux(prompt: string, imageDataUrl: string, modelName: string, taskId?: number, signal?: AbortSignal, modelParams?: ImageModelParams): Promise<GenerateResult> {
     const url = `${baseUrl}/v1/images/edits`
 
     // 构建 FormData
@@ -216,8 +217,8 @@ export function createDalleService(baseUrl: string, apiKey: string) {
     formData.append('response_format', 'b64_json')
 
     // 添加负面提示词（如果有）
-    if (negativePrompt) {
-      formData.append('negative_prompt', negativePrompt)
+    if (modelParams?.negativePrompt) {
+      formData.append('negative_prompt', modelParams.negativePrompt)
     }
 
     // 将 data URL 转换为 Blob 并添加到 FormData
@@ -230,7 +231,7 @@ export function createDalleService(baseUrl: string, apiKey: string) {
         url,
         method: 'POST',
         headers: { 'Authorization': '[REDACTED]' },
-        body: { model: modelName, prompt, negative_prompt: negativePrompt, n: 1, response_format: 'b64_json', image: `[file ${blob.size} bytes]` },
+        body: { model: modelName, prompt, negative_prompt: modelParams?.negativePrompt, n: 1, response_format: 'b64_json', image: `[file ${blob.size} bytes]` },
       })
     }
 

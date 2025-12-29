@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { VideoModelType, ApiFormat } from '~/shared/types'
+import type { VideoModelType, ApiFormat, ImageModelParams, ModelParams } from '~/shared/types'
 
 definePageMeta({
   middleware: 'auth',
@@ -10,7 +10,7 @@ const { upstreams, loadUpstreams } = useUpstreams()
 const toast = useToast()
 
 // StudioWorkbench 组件引用
-const workbenchRef = ref<{ setContent: (prompt: string | null, negativePrompt: string | null, images: string[]) => void } | null>(null)
+const workbenchRef = ref<{ setContent: (prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) => void } | null>(null)
 
 // 页面加载时获取数据
 onMounted(() => {
@@ -19,21 +19,30 @@ onMounted(() => {
 })
 
 // 提交图片任务
-async function handleImageSubmit(prompt: string, negativePrompt: string, images: string[], upstreamId: number, aimodelId: number, modelType: string, apiFormat: string, modelName: string) {
+async function handleImageSubmit(data: {
+  prompt: string
+  images: string[]
+  upstreamId: number
+  aimodelId: number
+  modelType: string
+  apiFormat: string
+  modelName: string
+  modelParams: ImageModelParams
+}) {
   try {
     const result = await $fetch<{ success: boolean; taskId: number; message: string }>('/api/tasks', {
       method: 'POST',
       body: {
         taskType: 'image',
-        prompt,
-        negativePrompt,
-        images,
-        type: apiFormat === 'mj-proxy' && images.length > 0 && !prompt ? 'blend' : 'imagine',
-        upstreamId,
-        aimodelId,
-        modelType,
-        apiFormat,
-        modelName,
+        prompt: data.prompt,
+        modelParams: data.modelParams,
+        images: data.images,
+        type: data.apiFormat === 'mj-proxy' && data.images.length > 0 && !data.prompt ? 'blend' : 'imagine',
+        upstreamId: data.upstreamId,
+        aimodelId: data.aimodelId,
+        modelType: data.modelType,
+        apiFormat: data.apiFormat,
+        modelName: data.modelName,
       },
     })
 
@@ -63,13 +72,7 @@ async function handleVideoSubmit(data: {
   modelType: VideoModelType
   apiFormat: ApiFormat
   modelName: string
-  videoParams: {
-    aspectRatio?: string
-    size?: string
-    enhancePrompt?: boolean
-    enableUpsample?: boolean
-    imageMode?: 'reference' | 'frames' | 'components'
-  }
+  modelParams: ModelParams
 }) {
   try {
     const result = await $fetch<{ success: boolean; taskId: number; message: string }>('/api/tasks', {
@@ -77,13 +80,13 @@ async function handleVideoSubmit(data: {
       body: {
         taskType: 'video',
         prompt: data.prompt,
+        modelParams: data.modelParams,
         images: data.images,
         upstreamId: data.upstreamId,
         aimodelId: data.aimodelId,
         modelType: data.modelType,
         apiFormat: data.apiFormat,
         modelName: data.modelName,
-        videoParams: data.videoParams,
       },
     })
 
@@ -105,8 +108,8 @@ async function handleVideoSubmit(data: {
 }
 
 // 复制任务内容到工作台
-function handleCopyToPanel(prompt: string | null, negativePrompt: string | null, images: string[]) {
-  workbenchRef.value?.setContent(prompt, negativePrompt, images)
+function handleCopyToPanel(prompt: string | null, modelParams: Record<string, unknown> | null, images: string[]) {
+  workbenchRef.value?.setContent(prompt, modelParams, images)
   toast.add({
     title: '已复制到工作台',
     color: 'success',
