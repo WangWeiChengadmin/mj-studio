@@ -15,6 +15,54 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
+// 上游配置（用于模型选择）
+const { upstreams, loadUpstreams } = useUpstreams()
+
+// 工作流执行
+const {
+  nodeStates,
+  isExecuting,
+  getNodeState,
+  executeSingleNode,
+  cleanup: cleanupExecution,
+} = useWorkflowExecution()
+
+// 筛选出图片生成模型
+const imageModels = computed(() => {
+  const models: Array<{ upstreamId: number; aimodelId: number; label: string; upstreamName: string }> = []
+  for (const upstream of upstreams.value) {
+    for (const aimodel of upstream.aimodels) {
+      if (aimodel.category === 'image') {
+        models.push({
+          upstreamId: upstream.id,
+          aimodelId: aimodel.id,
+          label: aimodel.modelName,
+          upstreamName: upstream.name,
+        })
+      }
+    }
+  }
+  return models
+})
+
+// 筛选出视频生成模型
+const videoModels = computed(() => {
+  const models: Array<{ upstreamId: number; aimodelId: number; label: string; upstreamName: string }> = []
+  for (const upstream of upstreams.value) {
+    for (const aimodel of upstream.aimodels) {
+      if (aimodel.category === 'video') {
+        models.push({
+          upstreamId: upstream.id,
+          aimodelId: aimodel.id,
+          label: aimodel.modelName,
+          upstreamName: upstream.name,
+        })
+      }
+    }
+  }
+  return models
+})
+
 const workflowId = computed(() => Number(route.params.id))
 
 // 工作流数据
@@ -260,18 +308,145 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
+// 选择模型
+function selectModel(nodeId: string, model: { upstreamId: number; aimodelId: number; label: string }) {
+  const node = nodes.value.find(n => n.id === nodeId)
+  if (node) {
+    node.data.upstreamId = model.upstreamId
+    node.data.aimodelId = model.aimodelId
+    node.data.selectedModel = model.label
+  }
+}
+
+// 执行单个节点
+async function executeNode(nodeId: string) {
+  const node = nodes.value.find(n => n.id === nodeId)
+  if (!node) return
+
+  try {
+    await executeSingleNode(node, nodes.value, edges.value)
+  } catch (error: any) {
+    toast.add({
+      title: '执行失败',
+      description: error.message,
+      color: 'error',
+    })
+  }
+}
+
+// 获取节点状态类名
+function getNodeStatusClass(nodeId: string): string {
+  const state = getNodeState(nodeId)
+  if (!state) return ''
+  switch (state.status) {
+    case 'pending':
+    case 'processing':
+      return 'node-processing'
+    case 'success':
+      return 'node-success'
+    case 'failed':
+      return 'node-failed'
+    default:
+      return ''
+  }
+}
+
+// 获取上游节点的结果（用于预览节点）
+function getUpstreamResult(nodeId: string): { type: 'image' | 'video'; url: string } | null {
+  // 找到连接到此节点的边
+  const incomingEdges = edges.value.filter(e => e.target === nodeId)
+
+  for (const edge of incomingEdges) {
+    const sourceNode = nodes.value.find(n => n.id === edge.source)
+    if (!sourceNode) continue
+
+    // 从输入图片节点获取
+    if (sourceNode.type === 'input-image' && sourceNode.data.imageUrl) {
+      return { type: 'image', url: sourceNode.data.imageUrl }
+    }
+
+    // 从生成节点获取结果
+    if (sourceNode.type === 'gen-image') {
+      const state = nodeStates.value.get(sourceNode.id)
+      if (state?.resultUrl) {
+        return { type: 'image', url: state.resultUrl }
+      }
+    }
+
+    if (sourceNode.type === 'gen-video') {
+      const state = nodeStates.value.get(sourceNode.id)
+      if (state?.resultUrl) {
+        return { type: 'video', url: state.resultUrl }
+      }
+    }
+  }
+
+  return null
+}
+
+// 图片上传
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploadingNodeId = ref<string | null>(null)
+
+function triggerUpload(nodeId: string) {
+  uploadingNodeId.value = nodeId
+  fileInput.value?.click()
+}
+
+async function handleFileUpload(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !uploadingNodeId.value) return
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const result = await $fetch<{ success: boolean; url: string }>('/api/images/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (result.success) {
+      const node = nodes.value.find(n => n.id === uploadingNodeId.value)
+      if (node) {
+        node.data.imageUrl = result.url
+      }
+    }
+  } catch (error: any) {
+    toast.add({
+      title: '上传失败',
+      description: error.message,
+      color: 'error',
+    })
+  } finally {
+    uploadingNodeId.value = null
+    input.value = ''
+  }
+}
+
 onMounted(() => {
   loadWorkflow()
+  loadUpstreams()
   window.addEventListener('keydown', handleKeydown)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  cleanupExecution()
 })
 </script>
 
 <template>
   <div class="workflow-page h-screen w-screen bg-zinc-950 overflow-hidden" @click="closeContextMenu">
+    <!-- 隐藏的文件上传 -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept="image/*"
+      class="hidden"
+      @change="handleFileUpload"
+    />
     <!-- 顶部工具栏 -->
     <header class="absolute top-0 left-0 right-0 z-10 h-12 bg-zinc-900/80 backdrop-blur border-b border-zinc-800 flex items-center px-4 gap-4">
       <UButton variant="ghost" size="sm" @click="goBack">
@@ -363,14 +538,21 @@ onUnmounted(() => {
         <Controls :show-fit-view="true" :show-interactive="true" class="!bg-zinc-900 !border-zinc-700" />
 
         <!-- 自定义节点: 图片输入 -->
-        <template #node-input-image="{ data }">
+        <template #node-input-image="{ id, data }">
           <div class="workflow-node node-input">
             <div class="node-header">
               <UIcon name="i-heroicons-photo" class="w-4 h-4" />
               <span>{{ data.label }}</span>
             </div>
             <div class="node-content">
-              <div class="upload-area">
+              <div
+                v-if="data.imageUrl"
+                class="upload-area has-image"
+                @click="triggerUpload(id)"
+              >
+                <img :src="data.imageUrl" class="w-full h-full object-cover rounded" />
+              </div>
+              <div v-else class="upload-area" @click="triggerUpload(id)">
                 <UIcon name="i-heroicons-arrow-up-tray" class="w-8 h-8 text-zinc-500" />
                 <span class="text-xs text-zinc-500">点击上传图片</span>
               </div>
@@ -380,31 +562,66 @@ onUnmounted(() => {
         </template>
 
         <!-- 自定义节点: AI 图像生成 -->
-        <template #node-gen-image="{ data }">
-          <div class="workflow-node node-gen">
+        <template #node-gen-image="{ id, data }">
+          <div class="workflow-node node-gen" :class="getNodeStatusClass(id)">
             <div class="node-header node-header-gen">
               <UIcon name="i-heroicons-sparkles" class="w-4 h-4" />
               <span>{{ data.label }}</span>
+              <!-- 状态指示 -->
+              <span v-if="getNodeState(id)?.status === 'processing'" class="ml-auto">
+                <UIcon name="i-heroicons-arrow-path" class="w-3 h-3 animate-spin text-blue-400" />
+              </span>
+              <span v-else-if="getNodeState(id)?.status === 'success'" class="ml-auto">
+                <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
+              </span>
+              <span v-else-if="getNodeState(id)?.status === 'failed'" class="ml-auto">
+                <UIcon name="i-heroicons-x-circle" class="w-3 h-3 text-red-400" />
+              </span>
             </div>
             <div class="node-content">
               <div class="mb-2">
                 <label class="text-[10px] text-zinc-500 block mb-1">模型</label>
-                <select class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200">
-                  <option>Midjourney</option>
-                  <option>DALL-E</option>
-                  <option>Flux</option>
+                <select
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 nodrag"
+                  :value="data.selectedModel || ''"
+                  @change="(e: Event) => {
+                    const val = (e.target as HTMLSelectElement).value
+                    const model = imageModels.find(m => m.label === val)
+                    if (model) selectModel(id, model)
+                  }"
+                >
+                  <option value="" disabled>选择模型</option>
+                  <option v-for="m in imageModels" :key="m.aimodelId" :value="m.label">
+                    {{ m.upstreamName }} / {{ m.label }}
+                  </option>
                 </select>
               </div>
               <div>
                 <label class="text-[10px] text-zinc-500 block mb-1">提示词</label>
                 <textarea
+                  v-model="data.prompt"
                   class="w-full h-16 bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 resize-none nodrag"
                   placeholder="输入提示词..."
                 />
               </div>
-              <UButton size="xs" color="primary" class="w-full mt-2">
+              <!-- 执行结果预览 -->
+              <div v-if="getNodeState(id)?.resultUrl" class="mt-2">
+                <img :src="getNodeState(id)?.resultUrl" class="w-full h-24 object-cover rounded" />
+              </div>
+              <!-- 错误信息 -->
+              <div v-if="getNodeState(id)?.error" class="mt-2 text-[10px] text-red-400 truncate" :title="getNodeState(id)?.error">
+                {{ getNodeState(id)?.error }}
+              </div>
+              <UButton
+                size="xs"
+                color="primary"
+                class="w-full mt-2"
+                :loading="getNodeState(id)?.status === 'processing'"
+                :disabled="!data.upstreamId || getNodeState(id)?.status === 'processing'"
+                @click="executeNode(id)"
+              >
                 <UIcon name="i-heroicons-play" class="w-3 h-3 mr-1" />
-                生成
+                {{ getNodeState(id)?.status === 'processing' ? '生成中...' : '生成' }}
               </UButton>
             </div>
             <Handle type="target" :position="Position.Left" class="handle-target" />
@@ -413,31 +630,66 @@ onUnmounted(() => {
         </template>
 
         <!-- 自定义节点: AI 视频生成 -->
-        <template #node-gen-video="{ data }">
-          <div class="workflow-node node-video">
+        <template #node-gen-video="{ id, data }">
+          <div class="workflow-node node-video" :class="getNodeStatusClass(id)">
             <div class="node-header node-header-video">
               <UIcon name="i-heroicons-film" class="w-4 h-4" />
               <span>{{ data.label }}</span>
+              <!-- 状态指示 -->
+              <span v-if="getNodeState(id)?.status === 'processing'" class="ml-auto">
+                <UIcon name="i-heroicons-arrow-path" class="w-3 h-3 animate-spin text-purple-400" />
+              </span>
+              <span v-else-if="getNodeState(id)?.status === 'success'" class="ml-auto">
+                <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
+              </span>
+              <span v-else-if="getNodeState(id)?.status === 'failed'" class="ml-auto">
+                <UIcon name="i-heroicons-x-circle" class="w-3 h-3 text-red-400" />
+              </span>
             </div>
             <div class="node-content">
               <div class="mb-2">
                 <label class="text-[10px] text-zinc-500 block mb-1">模型</label>
-                <select class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200">
-                  <option>即梦视频</option>
-                  <option>Veo</option>
-                  <option>Sora</option>
+                <select
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-200 nodrag"
+                  :value="data.selectedModel || ''"
+                  @change="(e: Event) => {
+                    const val = (e.target as HTMLSelectElement).value
+                    const model = videoModels.find(m => m.label === val)
+                    if (model) selectModel(id, model)
+                  }"
+                >
+                  <option value="" disabled>选择模型</option>
+                  <option v-for="m in videoModels" :key="m.aimodelId" :value="m.label">
+                    {{ m.upstreamName }} / {{ m.label }}
+                  </option>
                 </select>
               </div>
               <div>
                 <label class="text-[10px] text-zinc-500 block mb-1">提示词</label>
                 <textarea
+                  v-model="data.prompt"
                   class="w-full h-16 bg-zinc-800 border border-zinc-700 rounded p-2 text-xs text-zinc-200 resize-none nodrag"
                   placeholder="输入视频描述..."
                 />
               </div>
-              <UButton size="xs" color="secondary" class="w-full mt-2">
+              <!-- 执行结果预览 -->
+              <div v-if="getNodeState(id)?.resultUrl" class="mt-2">
+                <video :src="getNodeState(id)?.resultUrl" class="w-full h-24 object-cover rounded" controls />
+              </div>
+              <!-- 错误信息 -->
+              <div v-if="getNodeState(id)?.error" class="mt-2 text-[10px] text-red-400 truncate" :title="getNodeState(id)?.error">
+                {{ getNodeState(id)?.error }}
+              </div>
+              <UButton
+                size="xs"
+                color="secondary"
+                class="w-full mt-2"
+                :loading="getNodeState(id)?.status === 'processing'"
+                :disabled="!data.upstreamId || getNodeState(id)?.status === 'processing'"
+                @click="executeNode(id)"
+              >
                 <UIcon name="i-heroicons-play" class="w-3 h-3 mr-1" />
-                生成视频
+                {{ getNodeState(id)?.status === 'processing' ? '生成中...' : '生成视频' }}
               </UButton>
             </div>
             <Handle type="target" :position="Position.Left" class="handle-target" />
@@ -464,14 +716,28 @@ onUnmounted(() => {
         </template>
 
         <!-- 自定义节点: 预览 -->
-        <template #node-preview="{ data }">
+        <template #node-preview="{ id, data }">
           <div class="workflow-node node-preview">
             <div class="node-header node-header-preview">
               <UIcon name="i-heroicons-eye" class="w-4 h-4" />
               <span>{{ data.label }}</span>
             </div>
             <div class="node-content">
-              <div class="preview-area">
+              <!-- 显示上游结果 -->
+              <template v-if="getUpstreamResult(id)">
+                <img
+                  v-if="getUpstreamResult(id)?.type === 'image'"
+                  :src="getUpstreamResult(id)?.url"
+                  class="w-full h-32 object-contain rounded bg-zinc-800"
+                />
+                <video
+                  v-else-if="getUpstreamResult(id)?.type === 'video'"
+                  :src="getUpstreamResult(id)?.url"
+                  class="w-full h-32 object-contain rounded bg-zinc-800"
+                  controls
+                />
+              </template>
+              <div v-else class="preview-area">
                 <UIcon name="i-heroicons-photo" class="w-12 h-12 text-zinc-600" />
                 <span class="text-xs text-zinc-500">等待输入</span>
               </div>
@@ -580,6 +846,25 @@ onUnmounted(() => {
 .upload-area:hover,
 .preview-area:hover {
   border-color: #60a5fa;
+}
+
+.upload-area.has-image {
+  border: none;
+  padding: 0;
+}
+
+/* 节点状态样式 */
+.node-processing {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.node-success {
+  border-color: #22c55e !important;
+}
+
+.node-failed {
+  border-color: #ef4444 !important;
 }
 
 /* Handle 样式 */
