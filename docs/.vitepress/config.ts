@@ -6,8 +6,8 @@ export default defineConfig({
   base: '/help/',
   lang: 'zh-CN',
 
-  // 输出到 .vitepress/dist 目录（Nuxt 通过 publicAssets 引用）
-  outDir: '.vitepress/dist',
+  // 输出到 public/help 目录，Nuxt 会自动包含 public 目录到构建产物
+  outDir: '../public/help',
 
   // 忽略死链接
   ignoreDeadLinks: true,
