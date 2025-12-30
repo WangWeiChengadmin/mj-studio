@@ -55,9 +55,16 @@ export function getTokenFromHeader(event: H3Event): string | null {
   return authHeader.slice(7)
 }
 
+// 从 query 参数获取 token（用于 SSE 等不支持 header 的场景）
+export function getTokenFromQuery(event: H3Event): string | null {
+  const query = getQuery(event)
+  return (query.token as string) || null
+}
+
 // 从请求中获取用户信息
 export async function getUserFromEvent(event: H3Event): Promise<JwtPayload | null> {
-  const token = getTokenFromHeader(event)
+  // 优先从 header 获取，其次从 query 参数获取（用于 SSE）
+  const token = getTokenFromHeader(event) || getTokenFromQuery(event)
   if (!token) {
     return null
   }

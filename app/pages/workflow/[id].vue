@@ -5,6 +5,7 @@ import { Controls } from '@vue-flow/controls'
 import { MiniMap } from '@vue-flow/minimap'
 import type { Node, Edge, Connection } from '@vue-flow/core'
 import type { WorkflowData } from '~/shared/workflow-types'
+import type { WorkflowRun } from '~/server/database/schema'
 
 definePageMeta({
   middleware: 'auth',
@@ -26,41 +27,6 @@ const {
   cleanup: cleanupExecution,
 } = useWorkflowExecution()
 
-// 筛选出图片生成模型
-const imageModels = computed(() => {
-  const models: Array<{ upstreamId: number; aimodelId: number; label: string; upstreamName: string }> = []
-  for (const upstream of upstreams.value) {
-    for (const aimodel of upstream.aimodels) {
-      if (aimodel.category === 'image') {
-        models.push({
-          upstreamId: upstream.id,
-          aimodelId: aimodel.id,
-          label: aimodel.modelName,
-          upstreamName: upstream.name,
-        })
-      }
-    }
-  }
-  return models
-})
-
-// 筛选出视频生成模型
-const videoModels = computed(() => {
-  const models: Array<{ upstreamId: number; aimodelId: number; label: string; upstreamName: string }> = []
-  for (const upstream of upstreams.value) {
-    for (const aimodel of upstream.aimodels) {
-      if (aimodel.category === 'video') {
-        models.push({
-          upstreamId: upstream.id,
-          aimodelId: aimodel.id,
-          label: aimodel.modelName,
-          upstreamName: upstream.name,
-        })
-      }
-    }
-  }
-  return models
-})
 
 const workflowId = computed(() => Number(route.params.id))
 
@@ -97,6 +63,53 @@ async function loadWorkflow() {
   }
 }
 
+// 运行历史
+const runs = ref<WorkflowRun[]>([])
+
+async function loadRuns() {
+  try {
+    const res = await $fetch<{ success: boolean; data: WorkflowRun[] }>(
+      `/api/workflows/${workflowId.value}/runs`
+    )
+    runs.value = res.data || []
+  } catch (error) {
+    // 如果 API 还没实现，忽略错误
+    runs.value = []
+  }
+}
+
+// 侧边栏状态
+const sidebarCollapsed = ref(false)
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+// 选择运行记录
+function handleSelectRun(runId: number) {
+  router.push(`/workflow-run/${runId}`)
+}
+
+// 开始运行工作流
+async function handleRun() {
+  if (!workflowInfo.value) return
+
+  // 如果有未保存的更改，先保存
+  if (hasChanges.value) {
+    await saveWorkflow()
+  }
+
+  try {
+    const res = await $fetch<{ success: boolean; runId: number }>(
+      `/api/workflows/${workflowId.value}/run`,
+      { method: 'POST' }
+    )
+    // 跳转到运行模式页面
+    router.push(`/workflow-run/${res.runId}`)
+  } catch (error: any) {
+    toast.add({ title: '运行失败', description: error.data?.message, color: 'error' })
+  }
+}
 
 // 节点和边
 const nodes = ref<Node[]>([])
@@ -130,35 +143,6 @@ const hasChanges = ref(false)
 // 自动保存
 const autoSave = ref(false)
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-
-// 标题编辑
-const isEditingTitle = ref(false)
-const editingTitle = ref('')
-
-function startEditTitle() {
-  if (!workflowInfo.value) return
-  editingTitle.value = workflowInfo.value.name
-  isEditingTitle.value = true
-  nextTick(() => {
-    const input = document.querySelector('.title-input') as HTMLInputElement
-    input?.focus()
-    input?.select()
-  })
-}
-
-function confirmEditTitle() {
-  if (!workflowInfo.value || !editingTitle.value.trim()) {
-    isEditingTitle.value = false
-    return
-  }
-  workflowInfo.value.name = editingTitle.value.trim()
-  isEditingTitle.value = false
-  hasChanges.value = true
-}
-
-function cancelEditTitle() {
-  isEditingTitle.value = false
-}
 
 // 标记有变更
 watch([nodes, edges], () => {
@@ -288,17 +272,6 @@ function closeContextMenu() {
   contextMenu.value.show = false
 }
 
-// 返回列表
-function goBack() {
-  if (hasChanges.value) {
-    if (confirm('有未保存的更改，确定要离开吗？')) {
-      router.push('/workflows')
-    }
-  } else {
-    router.push('/workflows')
-  }
-}
-
 // 快捷键保存
 function handleKeydown(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key === 's') {
@@ -307,23 +280,18 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
-// 选择模型
-function selectModel(nodeId: string, model: { upstreamId: number; aimodelId: number; label: string }) {
+// 更新节点的模型选择
+function updateNodeModel(nodeId: string, field: 'upstreamId' | 'aimodelId', value: number | null) {
   const node = nodes.value.find(n => n.id === nodeId)
   if (node) {
-    node.data.upstreamId = model.upstreamId
-    node.data.aimodelId = model.aimodelId
-    node.data.selectedModel = model.label
+    node.data[field] = value
   }
 }
 
 // 执行单个节点
 async function executeNode(nodeId: string) {
-  const node = nodes.value.find(n => n.id === nodeId)
-  if (!node) return
-
   try {
-    await executeSingleNode(node, nodes.value, edges.value)
+    await executeSingleNode(workflowId.value, nodeId)
   } catch (error: any) {
     toast.add({
       title: '执行失败',
@@ -427,6 +395,7 @@ async function handleFileUpload(event: Event) {
 onMounted(() => {
   loadWorkflow()
   loadUpstreams()
+  loadRuns()
   window.addEventListener('keydown', handleKeydown)
 })
 
@@ -437,7 +406,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="workflow-page flex flex-col h-[calc(100vh-56px)] bg-(--ui-bg) overflow-hidden" @click="closeContextMenu">
+  <div class="workflow-page flex h-[calc(100vh-56px)] bg-(--ui-bg) overflow-hidden" @click="closeContextMenu">
     <!-- 隐藏的文件上传 -->
     <input
       ref="fileInput"
@@ -446,308 +415,261 @@ onUnmounted(() => {
       class="hidden"
       @change="handleFileUpload"
     />
-    <!-- 工具栏 -->
-    <header class="shrink-0 h-11 bg-(--ui-bg-elevated)/80 backdrop-blur border-b border-(--ui-border) flex items-center px-4 gap-4">
-      <UButton variant="ghost" size="sm" @click="goBack">
-        <UIcon name="i-heroicons-arrow-left" class="w-4 h-4 mr-1" />
-        返回
-      </UButton>
 
-      <div class="h-4 w-px bg-(--ui-border)" />
+    <!-- 左侧边栏 -->
+    <WorkflowSidebar
+      :workflow-name="workflowInfo?.name || '工作流'"
+      :runs="runs"
+      :has-changes="hasChanges"
+      :is-saving="isSaving"
+      :is-collapsed="sidebarCollapsed"
+      @run="handleRun"
+      @save="saveWorkflow"
+      @select-run="handleSelectRun"
+      @toggle-collapse="toggleSidebar"
+    />
 
-      <!-- 标题（可编辑） -->
-      <div class="flex items-center gap-1">
-        <template v-if="isEditingTitle">
-          <input
-            v-model="editingTitle"
-            class="title-input bg-(--ui-bg-muted) border border-(--ui-border) rounded px-2 py-0.5 text-sm text-(--ui-text) outline-none focus:border-(--ui-primary) w-48"
-            @keydown.enter="confirmEditTitle"
-            @keydown.escape="cancelEditTitle"
-            @blur="confirmEditTitle"
-          />
-        </template>
-        <template v-else>
-          <h1
-            class="text-sm font-medium text-(--ui-text) cursor-pointer hover:text-(--ui-text-highlighted) px-2 py-0.5 rounded hover:bg-(--ui-bg-muted) transition-colors"
-            title="点击编辑标题"
-            @click="startEditTitle"
-          >
-            {{ workflowInfo?.name || '工作流' }}
-          </h1>
-        </template>
-        <span v-if="hasChanges" class="text-yellow-500 text-sm">*</span>
+    <!-- 主画布区域 -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- 加载中 -->
+      <div v-if="isLoading" class="flex-1 flex items-center justify-center">
+        <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-(--ui-text-muted)" />
       </div>
 
-      <div class="flex-1" />
+      <!-- Vue Flow 画布 -->
+      <ClientOnly v-else>
+        <VueFlow
+          v-model:nodes="nodes"
+          v-model:edges="edges"
+          :default-viewport="workflowData?.viewport || { x: 0, y: 0, zoom: 1 }"
+          :min-zoom="0.2"
+          :max-zoom="3"
+          :snap-to-grid="true"
+          :snap-grid="[15, 15]"
+          :delete-key-code="['Backspace', 'Delete']"
+          class="workflow-canvas"
+          @connect="onConnect"
+          @pane-context-menu="onPaneContextMenu"
+          @pane-click="closeContextMenu"
+        >
+          <!-- 背景 -->
+          <Background :gap="20" :size="1" class="workflow-background" />
 
-      <!-- 自动保存 -->
-      <label class="flex items-center gap-1.5 text-xs text-(--ui-text-muted) cursor-pointer select-none">
-        <UCheckbox v-model="autoSave" />
-        自动保存
-      </label>
+          <!-- 小地图 -->
+          <MiniMap :pannable="true" :zoomable="true" />
 
-      <div class="h-4 w-px bg-(--ui-border)" />
+          <!-- 控制面板 -->
+          <Controls :show-fit-view="true" :show-interactive="true" />
 
-      <span class="text-xs text-(--ui-text-dimmed) hidden sm:inline">Ctrl+S 保存 · 右键添加节点</span>
+          <!-- 自定义节点: 图片输入 -->
+          <template #node-input-image="{ id, data }">
+            <div class="workflow-node node-input">
+              <div class="node-header">
+                <UIcon name="i-heroicons-photo" class="w-4 h-4" />
+                <span>{{ data.label }}</span>
+              </div>
+              <div class="node-content">
+                <div
+                  v-if="data.imageUrl"
+                  class="upload-area has-image"
+                  @click="triggerUpload(id)"
+                >
+                  <img :src="data.imageUrl" class="w-full h-full object-cover rounded" />
+                </div>
+                <div v-else class="upload-area" @click="triggerUpload(id)">
+                  <UIcon name="i-heroicons-arrow-up-tray" class="w-8 h-8 text-(--ui-text-muted)" />
+                  <span class="text-xs text-(--ui-text-muted)">点击上传图片</span>
+                </div>
+              </div>
+              <Handle type="source" :position="Position.Right" class="handle-source" />
+            </div>
+          </template>
 
-      <UButton
-        size="sm"
-        color="primary"
-        :loading="isSaving"
-        :disabled="!hasChanges"
-        @click="saveWorkflow"
-      >
-        <UIcon name="i-heroicons-cloud-arrow-up" class="w-4 h-4 mr-1" />
-        保存
-      </UButton>
-    </header>
+          <!-- 自定义节点: AI 图像生成 -->
+          <template #node-gen-image="{ id, data }">
+            <div class="workflow-node node-gen" :class="getNodeStatusClass(id)">
+              <div class="node-header node-header-gen">
+                <UIcon name="i-heroicons-sparkles" class="w-4 h-4" />
+                <span>{{ data.label }}</span>
+                <!-- 状态指示 -->
+                <span v-if="getNodeState(id)?.status === 'processing'" class="ml-auto">
+                  <UIcon name="i-heroicons-arrow-path" class="w-3 h-3 animate-spin text-blue-400" />
+                </span>
+                <span v-else-if="getNodeState(id)?.status === 'success'" class="ml-auto">
+                  <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
+                </span>
+                <span v-else-if="getNodeState(id)?.status === 'failed'" class="ml-auto">
+                  <UIcon name="i-heroicons-x-circle" class="w-3 h-3 text-red-400" />
+                </span>
+              </div>
+              <div class="node-content">
+                <div class="mb-2 nodrag">
+                  <ModelSelector
+                    :upstreams="upstreams"
+                    category="image"
+                    show-type-label
+                    list-layout
+                    dropdown-width="w-64"
+                    :upstream-id="data.upstreamId || null"
+                    :aimodel-id="data.aimodelId || null"
+                    @update:upstream-id="(val) => updateNodeModel(id, 'upstreamId', val)"
+                    @update:aimodel-id="(val) => updateNodeModel(id, 'aimodelId', val)"
+                  />
+                </div>
+                <div>
+                  <label class="text-[10px] text-(--ui-text-muted) block mb-1">提示词</label>
+                  <textarea
+                    v-model="data.prompt"
+                    class="node-textarea nodrag"
+                    placeholder="输入提示词..."
+                  />
+                </div>
+                <!-- 执行结果预览 -->
+                <div v-if="getNodeState(id)?.resultUrl" class="mt-2">
+                  <img :src="getNodeState(id)?.resultUrl" class="w-full h-24 object-cover rounded" />
+                </div>
+                <!-- 错误信息 -->
+                <div v-if="getNodeState(id)?.error" class="mt-2 text-[10px] text-red-400 truncate" :title="getNodeState(id)?.error">
+                  {{ getNodeState(id)?.error }}
+                </div>
+                <UButton
+                  size="xs"
+                  color="primary"
+                  class="w-full mt-2"
+                  :loading="getNodeState(id)?.status === 'processing'"
+                  :disabled="!data.upstreamId || getNodeState(id)?.status === 'processing'"
+                  @click="executeNode(id)"
+                >
+                  <UIcon name="i-heroicons-play" class="w-3 h-3 mr-1" />
+                  {{ getNodeState(id)?.status === 'processing' ? '生成中...' : '生成' }}
+                </UButton>
+              </div>
+              <Handle type="target" :position="Position.Left" class="handle-target" />
+              <Handle type="source" :position="Position.Right" class="handle-source" />
+            </div>
+          </template>
 
-    <!-- 加载中 -->
-    <div v-if="isLoading" class="flex-1 flex items-center justify-center">
-      <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-(--ui-text-muted)" />
+          <!-- 自定义节点: AI 视频生成 -->
+          <template #node-gen-video="{ id, data }">
+            <div class="workflow-node node-video" :class="getNodeStatusClass(id)">
+              <div class="node-header node-header-video">
+                <UIcon name="i-heroicons-film" class="w-4 h-4" />
+                <span>{{ data.label }}</span>
+                <!-- 状态指示 -->
+                <span v-if="getNodeState(id)?.status === 'processing'" class="ml-auto">
+                  <UIcon name="i-heroicons-arrow-path" class="w-3 h-3 animate-spin text-purple-400" />
+                </span>
+                <span v-else-if="getNodeState(id)?.status === 'success'" class="ml-auto">
+                  <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
+                </span>
+                <span v-else-if="getNodeState(id)?.status === 'failed'" class="ml-auto">
+                  <UIcon name="i-heroicons-x-circle" class="w-3 h-3 text-red-400" />
+                </span>
+              </div>
+              <div class="node-content">
+                <div class="mb-2 nodrag">
+                  <ModelSelector
+                    :upstreams="upstreams"
+                    category="video"
+                    show-type-label
+                    list-layout
+                    dropdown-width="w-64"
+                    :upstream-id="data.upstreamId || null"
+                    :aimodel-id="data.aimodelId || null"
+                    @update:upstream-id="(val) => updateNodeModel(id, 'upstreamId', val)"
+                    @update:aimodel-id="(val) => updateNodeModel(id, 'aimodelId', val)"
+                  />
+                </div>
+                <div>
+                  <label class="text-[10px] text-(--ui-text-muted) block mb-1">提示词</label>
+                  <textarea
+                    v-model="data.prompt"
+                    class="node-textarea nodrag"
+                    placeholder="输入视频描述..."
+                  />
+                </div>
+                <!-- 执行结果预览 -->
+                <div v-if="getNodeState(id)?.resultUrl" class="mt-2">
+                  <video :src="getNodeState(id)?.resultUrl" class="w-full h-24 object-cover rounded" controls />
+                </div>
+                <!-- 错误信息 -->
+                <div v-if="getNodeState(id)?.error" class="mt-2 text-[10px] text-red-400 truncate" :title="getNodeState(id)?.error">
+                  {{ getNodeState(id)?.error }}
+                </div>
+                <UButton
+                  size="xs"
+                  color="secondary"
+                  class="w-full mt-2"
+                  :loading="getNodeState(id)?.status === 'processing'"
+                  :disabled="!data.upstreamId || getNodeState(id)?.status === 'processing'"
+                  @click="executeNode(id)"
+                >
+                  <UIcon name="i-heroicons-play" class="w-3 h-3 mr-1" />
+                  {{ getNodeState(id)?.status === 'processing' ? '生成中...' : '生成视频' }}
+                </UButton>
+              </div>
+              <Handle type="target" :position="Position.Left" class="handle-target" />
+              <Handle type="source" :position="Position.Right" class="handle-source" />
+            </div>
+          </template>
+
+          <!-- 自定义节点: 文本 -->
+          <template #node-text-node="{ data }">
+            <div class="workflow-node node-text">
+              <div class="node-header node-header-text">
+                <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
+                <span>{{ data.label }}</span>
+              </div>
+              <div class="node-content">
+                <textarea
+                  v-model="data.text"
+                  class="node-textarea h-20 nodrag"
+                  placeholder="输入文本内容..."
+                />
+              </div>
+              <Handle type="source" :position="Position.Right" class="handle-source" />
+            </div>
+          </template>
+
+          <!-- 自定义节点: 预览 -->
+          <template #node-preview="{ id, data }">
+            <div class="workflow-node node-preview">
+              <div class="node-header node-header-preview">
+                <UIcon name="i-heroicons-eye" class="w-4 h-4" />
+                <span>{{ data.label }}</span>
+              </div>
+              <div class="node-content">
+                <!-- 显示上游结果 -->
+                <template v-if="getUpstreamResult(id)">
+                  <img
+                    v-if="getUpstreamResult(id)?.type === 'image'"
+                    :src="getUpstreamResult(id)?.url"
+                    class="w-full h-32 object-contain rounded bg-(--ui-bg-muted)"
+                  />
+                  <video
+                    v-else-if="getUpstreamResult(id)?.type === 'video'"
+                    :src="getUpstreamResult(id)?.url"
+                    class="w-full h-32 object-contain rounded bg-(--ui-bg-muted)"
+                    controls
+                  />
+                </template>
+                <div v-else class="preview-area">
+                  <UIcon name="i-heroicons-photo" class="w-12 h-12 text-(--ui-text-dimmed)" />
+                  <span class="text-xs text-(--ui-text-muted)">等待输入</span>
+                </div>
+              </div>
+              <Handle type="target" :position="Position.Left" class="handle-target" />
+            </div>
+          </template>
+        </VueFlow>
+
+        <template #fallback>
+          <div class="h-full w-full flex items-center justify-center">
+            <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-zinc-500" />
+          </div>
+        </template>
+      </ClientOnly>
     </div>
-
-    <!-- Vue Flow 画布 -->
-    <ClientOnly v-else>
-      <VueFlow
-        v-model:nodes="nodes"
-        v-model:edges="edges"
-        :default-viewport="workflowData?.viewport || { x: 0, y: 0, zoom: 1 }"
-        :min-zoom="0.2"
-        :max-zoom="3"
-        :snap-to-grid="true"
-        :snap-grid="[15, 15]"
-        :delete-key-code="['Backspace', 'Delete']"
-        class="workflow-canvas"
-        @connect="onConnect"
-        @pane-context-menu="onPaneContextMenu"
-        @pane-click="closeContextMenu"
-      >
-        <!-- 背景 -->
-        <Background :gap="20" :size="1" class="workflow-background" />
-
-        <!-- 小地图 -->
-        <MiniMap :pannable="true" :zoomable="true" />
-
-        <!-- 控制面板 -->
-        <Controls :show-fit-view="true" :show-interactive="true" />
-
-        <!-- 自定义节点: 图片输入 -->
-        <template #node-input-image="{ id, data }">
-          <div class="workflow-node node-input">
-            <div class="node-header">
-              <UIcon name="i-heroicons-photo" class="w-4 h-4" />
-              <span>{{ data.label }}</span>
-            </div>
-            <div class="node-content">
-              <div
-                v-if="data.imageUrl"
-                class="upload-area has-image"
-                @click="triggerUpload(id)"
-              >
-                <img :src="data.imageUrl" class="w-full h-full object-cover rounded" />
-              </div>
-              <div v-else class="upload-area" @click="triggerUpload(id)">
-                <UIcon name="i-heroicons-arrow-up-tray" class="w-8 h-8 text-(--ui-text-muted)" />
-                <span class="text-xs text-(--ui-text-muted)">点击上传图片</span>
-              </div>
-            </div>
-            <Handle type="source" :position="Position.Right" class="handle-source" />
-          </div>
-        </template>
-
-        <!-- 自定义节点: AI 图像生成 -->
-        <template #node-gen-image="{ id, data }">
-          <div class="workflow-node node-gen" :class="getNodeStatusClass(id)">
-            <div class="node-header node-header-gen">
-              <UIcon name="i-heroicons-sparkles" class="w-4 h-4" />
-              <span>{{ data.label }}</span>
-              <!-- 状态指示 -->
-              <span v-if="getNodeState(id)?.status === 'processing'" class="ml-auto">
-                <UIcon name="i-heroicons-arrow-path" class="w-3 h-3 animate-spin text-blue-400" />
-              </span>
-              <span v-else-if="getNodeState(id)?.status === 'success'" class="ml-auto">
-                <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
-              </span>
-              <span v-else-if="getNodeState(id)?.status === 'failed'" class="ml-auto">
-                <UIcon name="i-heroicons-x-circle" class="w-3 h-3 text-red-400" />
-              </span>
-            </div>
-            <div class="node-content">
-              <div class="mb-2">
-                <label class="text-[10px] text-(--ui-text-muted) block mb-1">模型</label>
-                <select
-                  class="node-select nodrag"
-                  :value="data.selectedModel || ''"
-                  @change="(e: Event) => {
-                    const val = (e.target as HTMLSelectElement).value
-                    const model = imageModels.find(m => m.label === val)
-                    if (model) selectModel(id, model)
-                  }"
-                >
-                  <option value="" disabled>选择模型</option>
-                  <option v-for="m in imageModels" :key="m.aimodelId" :value="m.label">
-                    {{ m.upstreamName }} / {{ m.label }}
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label class="text-[10px] text-(--ui-text-muted) block mb-1">提示词</label>
-                <textarea
-                  v-model="data.prompt"
-                  class="node-textarea nodrag"
-                  placeholder="输入提示词..."
-                />
-              </div>
-              <!-- 执行结果预览 -->
-              <div v-if="getNodeState(id)?.resultUrl" class="mt-2">
-                <img :src="getNodeState(id)?.resultUrl" class="w-full h-24 object-cover rounded" />
-              </div>
-              <!-- 错误信息 -->
-              <div v-if="getNodeState(id)?.error" class="mt-2 text-[10px] text-red-400 truncate" :title="getNodeState(id)?.error">
-                {{ getNodeState(id)?.error }}
-              </div>
-              <UButton
-                size="xs"
-                color="primary"
-                class="w-full mt-2"
-                :loading="getNodeState(id)?.status === 'processing'"
-                :disabled="!data.upstreamId || getNodeState(id)?.status === 'processing'"
-                @click="executeNode(id)"
-              >
-                <UIcon name="i-heroicons-play" class="w-3 h-3 mr-1" />
-                {{ getNodeState(id)?.status === 'processing' ? '生成中...' : '生成' }}
-              </UButton>
-            </div>
-            <Handle type="target" :position="Position.Left" class="handle-target" />
-            <Handle type="source" :position="Position.Right" class="handle-source" />
-          </div>
-        </template>
-
-        <!-- 自定义节点: AI 视频生成 -->
-        <template #node-gen-video="{ id, data }">
-          <div class="workflow-node node-video" :class="getNodeStatusClass(id)">
-            <div class="node-header node-header-video">
-              <UIcon name="i-heroicons-film" class="w-4 h-4" />
-              <span>{{ data.label }}</span>
-              <!-- 状态指示 -->
-              <span v-if="getNodeState(id)?.status === 'processing'" class="ml-auto">
-                <UIcon name="i-heroicons-arrow-path" class="w-3 h-3 animate-spin text-purple-400" />
-              </span>
-              <span v-else-if="getNodeState(id)?.status === 'success'" class="ml-auto">
-                <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
-              </span>
-              <span v-else-if="getNodeState(id)?.status === 'failed'" class="ml-auto">
-                <UIcon name="i-heroicons-x-circle" class="w-3 h-3 text-red-400" />
-              </span>
-            </div>
-            <div class="node-content">
-              <div class="mb-2">
-                <label class="text-[10px] text-(--ui-text-muted) block mb-1">模型</label>
-                <select
-                  class="node-select nodrag"
-                  :value="data.selectedModel || ''"
-                  @change="(e: Event) => {
-                    const val = (e.target as HTMLSelectElement).value
-                    const model = videoModels.find(m => m.label === val)
-                    if (model) selectModel(id, model)
-                  }"
-                >
-                  <option value="" disabled>选择模型</option>
-                  <option v-for="m in videoModels" :key="m.aimodelId" :value="m.label">
-                    {{ m.upstreamName }} / {{ m.label }}
-                  </option>
-                </select>
-              </div>
-              <div>
-                <label class="text-[10px] text-(--ui-text-muted) block mb-1">提示词</label>
-                <textarea
-                  v-model="data.prompt"
-                  class="node-textarea nodrag"
-                  placeholder="输入视频描述..."
-                />
-              </div>
-              <!-- 执行结果预览 -->
-              <div v-if="getNodeState(id)?.resultUrl" class="mt-2">
-                <video :src="getNodeState(id)?.resultUrl" class="w-full h-24 object-cover rounded" controls />
-              </div>
-              <!-- 错误信息 -->
-              <div v-if="getNodeState(id)?.error" class="mt-2 text-[10px] text-red-400 truncate" :title="getNodeState(id)?.error">
-                {{ getNodeState(id)?.error }}
-              </div>
-              <UButton
-                size="xs"
-                color="secondary"
-                class="w-full mt-2"
-                :loading="getNodeState(id)?.status === 'processing'"
-                :disabled="!data.upstreamId || getNodeState(id)?.status === 'processing'"
-                @click="executeNode(id)"
-              >
-                <UIcon name="i-heroicons-play" class="w-3 h-3 mr-1" />
-                {{ getNodeState(id)?.status === 'processing' ? '生成中...' : '生成视频' }}
-              </UButton>
-            </div>
-            <Handle type="target" :position="Position.Left" class="handle-target" />
-            <Handle type="source" :position="Position.Right" class="handle-source" />
-          </div>
-        </template>
-
-        <!-- 自定义节点: 文本 -->
-        <template #node-text-node="{ data }">
-          <div class="workflow-node node-text">
-            <div class="node-header node-header-text">
-              <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
-              <span>{{ data.label }}</span>
-            </div>
-            <div class="node-content">
-              <textarea
-                v-model="data.text"
-                class="node-textarea h-20 nodrag"
-                placeholder="输入文本内容..."
-              />
-            </div>
-            <Handle type="source" :position="Position.Right" class="handle-source" />
-          </div>
-        </template>
-
-        <!-- 自定义节点: 预览 -->
-        <template #node-preview="{ id, data }">
-          <div class="workflow-node node-preview">
-            <div class="node-header node-header-preview">
-              <UIcon name="i-heroicons-eye" class="w-4 h-4" />
-              <span>{{ data.label }}</span>
-            </div>
-            <div class="node-content">
-              <!-- 显示上游结果 -->
-              <template v-if="getUpstreamResult(id)">
-                <img
-                  v-if="getUpstreamResult(id)?.type === 'image'"
-                  :src="getUpstreamResult(id)?.url"
-                  class="w-full h-32 object-contain rounded bg-(--ui-bg-muted)"
-                />
-                <video
-                  v-else-if="getUpstreamResult(id)?.type === 'video'"
-                  :src="getUpstreamResult(id)?.url"
-                  class="w-full h-32 object-contain rounded bg-(--ui-bg-muted)"
-                  controls
-                />
-              </template>
-              <div v-else class="preview-area">
-                <UIcon name="i-heroicons-photo" class="w-12 h-12 text-(--ui-text-dimmed)" />
-                <span class="text-xs text-(--ui-text-muted)">等待输入</span>
-              </div>
-            </div>
-            <Handle type="target" :position="Position.Left" class="handle-target" />
-          </div>
-        </template>
-      </VueFlow>
-
-      <template #fallback>
-        <div class="h-full w-full flex items-center justify-center">
-          <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-zinc-500" />
-        </div>
-      </template>
-    </ClientOnly>
 
     <!-- 右键上下文菜单 -->
     <Teleport to="body">
@@ -825,21 +747,6 @@ onUnmounted(() => {
 }
 
 /* 节点表单控件 */
-.node-select {
-  width: 100%;
-  background: var(--ui-bg-muted);
-  border: 1px solid var(--ui-border);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  color: var(--ui-text);
-}
-
-.node-select:focus {
-  outline: none;
-  border-color: var(--ui-primary);
-}
-
 .node-textarea {
   width: 100%;
   height: 64px;

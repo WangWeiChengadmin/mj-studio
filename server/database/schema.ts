@@ -181,7 +181,13 @@ export type NewUserSetting = typeof userSettings.$inferInsert
 // ==================== 工作流相关表 ====================
 
 // 工作流运行状态
-export type WorkflowRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type WorkflowRunStatus = 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled'
+
+// 工作流运行模式
+export type WorkflowRunMode = 'normal' | 'step' // 普通模式：自动执行所有节点；单步模式：每个节点执行后暂停
+
+// 工作流节点执行状态
+export type WorkflowRunNodeStatus = 'idle' | 'pending' | 'processing' | 'success' | 'failed' | 'skipped'
 
 // 工作流模板分类
 export type WorkflowTemplateCategory = 'image' | 'video' | 'mixed'
@@ -205,20 +211,11 @@ export type NewWorkflow = typeof workflows.$inferInsert
 // 工作流运行记录表
 export const workflowRuns = sqliteTable('workflow_runs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  workflowId: integer('workflow_id').notNull(),
+  workflowId: integer('workflow_id').notNull(), // 关联工作流（用于查询历史）
   userId: integer('user_id').notNull(),
   status: text('status').$type<WorkflowRunStatus>().notNull().default('pending'),
+  runMode: text('run_mode').$type<WorkflowRunMode>().notNull().default('normal'), // 运行模式：普通/单步
   snapshotFilename: text('snapshot_filename').notNull(), // 执行时的工作流快照文件
-  currentNodeId: text('current_node_id'), // 当前执行到的节点
-  progress: integer('progress').notNull().default(0), // 整体进度 0-100
-  nodeResults: text('node_results', { mode: 'json' }).$type<Record<string, {
-    status: 'pending' | 'running' | 'completed' | 'failed'
-    output?: any
-    error?: string
-    taskId?: number // 关联的任务ID
-    startedAt?: string
-    completedAt?: string
-  }>>(), // 各节点执行结果
   error: text('error'), // 失败时的错误信息
   startedAt: integer('started_at', { mode: 'timestamp' }),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
@@ -227,6 +224,25 @@ export const workflowRuns = sqliteTable('workflow_runs', {
 
 export type WorkflowRun = typeof workflowRuns.$inferSelect
 export type NewWorkflowRun = typeof workflowRuns.$inferInsert
+
+// 工作流节点执行记录表
+export const workflowRunNodes = sqliteTable('workflow_run_nodes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  runId: integer('run_id').notNull(), // 关联执行记录
+  nodeId: text('node_id').notNull(), // 节点 ID（快照中的 id）
+  status: text('status').$type<WorkflowRunNodeStatus>().notNull().default('idle'),
+  inputs: text('inputs', { mode: 'json' }).$type<Record<string, any>>(), // 节点输入（通用 JSON）
+  outputs: text('outputs', { mode: 'json' }).$type<Record<string, any>>(), // 节点输出（通用 JSON，包含 taskId 等）
+  error: text('error'), // 错误信息
+  startedAt: integer('started_at', { mode: 'timestamp' }),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => ({
+  runNodeUnique: unique().on(table.runId, table.nodeId),
+}))
+
+export type WorkflowRunNode = typeof workflowRunNodes.$inferSelect
+export type NewWorkflowRunNode = typeof workflowRunNodes.$inferInsert
 
 // 工作流模板表（预设模板）
 export const workflowTemplates = sqliteTable('workflow_templates', {

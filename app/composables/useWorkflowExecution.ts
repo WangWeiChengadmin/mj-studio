@@ -1,7 +1,5 @@
-// 工作流节点执行管理
-import type { Node, Edge } from '@vue-flow/core'
+// 工作流节点执行管理（前端状态 + 后端执行）
 import type { Task } from './useTasks'
-import type { Upstream, Aimodel } from './useUpstreams'
 
 // 节点执行状态
 export type NodeExecutionStatus = 'idle' | 'pending' | 'processing' | 'success' | 'failed'
@@ -16,13 +14,13 @@ export interface NodeExecutionResult {
   taskId?: number
 }
 
-// 节点数据中的执行配置
-export interface NodeExecutionConfig {
-  upstreamId?: number
-  aimodelId?: number
-  prompt?: string
-  imageUrl?: string  // 输入图片
-  text?: string      // 文本内容
+// 后端返回的执行结果
+interface BackendExecutionResult {
+  nodeId: string
+  status: 'idle' | 'pending' | 'processing' | 'success' | 'failed'
+  taskId?: number
+  resultUrl?: string
+  error?: string
 }
 
 export function useWorkflowExecution() {
@@ -53,109 +51,6 @@ export function useWorkflowExecution() {
     pollingTasks.value.forEach((timeout) => clearTimeout(timeout))
     pollingTasks.value.clear()
     isExecuting.value = false
-  }
-
-  // 获取节点的输入数据（从上游节点）
-  function getNodeInputs(nodeId: string, nodes: Node[], edges: Edge[]): {
-    images: string[]
-    texts: string[]
-  } {
-    const images: string[] = []
-    const texts: string[] = []
-
-    // 找到连接到此节点的边
-    const incomingEdges = edges.filter(e => e.target === nodeId)
-
-    for (const edge of incomingEdges) {
-      const sourceNode = nodes.find(n => n.id === edge.source)
-      if (!sourceNode) continue
-
-      // 根据源节点类型获取数据
-      if (sourceNode.type === 'input-image' && sourceNode.data.imageUrl) {
-        images.push(sourceNode.data.imageUrl)
-      } else if (sourceNode.type === 'text-node' && sourceNode.data.text) {
-        texts.push(sourceNode.data.text)
-      } else if ((sourceNode.type === 'gen-image' || sourceNode.type === 'gen-video')) {
-        // 从上游生成节点获取结果
-        const state = nodeStates.value.get(sourceNode.id)
-        if (state?.resultUrl) {
-          images.push(state.resultUrl)
-        }
-      }
-    }
-
-    return { images, texts }
-  }
-
-  // 执行单个生成节点
-  async function executeGenNode(
-    node: Node,
-    nodes: Node[],
-    edges: Edge[],
-    taskType: 'image' | 'video'
-  ): Promise<void> {
-    const { upstreamId, aimodelId, prompt } = node.data as NodeExecutionConfig
-
-    if (!upstreamId || !aimodelId) {
-      updateNodeState(node.id, {
-        status: 'failed',
-        error: '请先选择模型',
-      })
-      return
-    }
-
-    // 获取输入
-    const inputs = getNodeInputs(node.id, nodes, edges)
-    const finalPrompt = inputs.texts.length > 0
-      ? inputs.texts.join('\n') + (prompt ? '\n' + prompt : '')
-      : prompt
-
-    if (!finalPrompt && inputs.images.length === 0) {
-      updateNodeState(node.id, {
-        status: 'failed',
-        error: '请输入提示词或连接输入节点',
-      })
-      return
-    }
-
-    updateNodeState(node.id, { status: 'pending' })
-
-    try {
-      // 创建任务
-      const result = await $fetch<{ success: boolean; taskId: number }>('/api/tasks', {
-        method: 'POST',
-        body: {
-          upstreamId,
-          aimodelId,
-          taskType,
-          prompt: finalPrompt,
-          images: inputs.images,
-          type: 'imagine',
-          sourceType: 'workbench',
-        },
-      })
-
-      if (!result.success || !result.taskId) {
-        updateNodeState(node.id, {
-          status: 'failed',
-          error: '创建任务失败',
-        })
-        return
-      }
-
-      updateNodeState(node.id, {
-        status: 'processing',
-        taskId: result.taskId,
-      })
-
-      // 开始轮询任务状态
-      await pollTaskStatus(node.id, result.taskId)
-    } catch (error: any) {
-      updateNodeState(node.id, {
-        status: 'failed',
-        error: error.data?.message || error.message || '执行失败',
-      })
-    }
   }
 
   // 轮询任务状态
@@ -207,102 +102,95 @@ export function useWorkflowExecution() {
     })
   }
 
-  // 更新预览节点（从上游获取结果）
-  function updatePreviewNode(node: Node, nodes: Node[], edges: Edge[]): void {
-    const inputs = getNodeInputs(node.id, nodes, edges)
+  // 执行单个节点（调用后端 API）
+  async function executeSingleNode(workflowId: number, nodeId: string): Promise<void> {
+    updateNodeState(nodeId, { status: 'pending' })
 
-    if (inputs.images.length > 0) {
-      // 使用第一个图片作为预览
-      node.data.previewUrl = inputs.images[0]
+    try {
+      const result = await $fetch<{
+        success: boolean
+        data: BackendExecutionResult
+      }>(`/api/workflows/${workflowId}/run-node`, {
+        method: 'POST',
+        body: { nodeId },
+      })
+
+      if (!result.success) {
+        updateNodeState(nodeId, {
+          status: 'failed',
+          error: '执行失败',
+        })
+        return
+      }
+
+      const { data } = result
+
+      if (data.status === 'failed') {
+        updateNodeState(nodeId, {
+          status: 'failed',
+          error: data.error || '执行失败',
+        })
+        return
+      }
+
+      if (data.taskId) {
+        updateNodeState(nodeId, {
+          status: 'processing',
+          taskId: data.taskId,
+        })
+        // 开始轮询任务状态
+        await pollTaskStatus(nodeId, data.taskId)
+      }
+    } catch (error: any) {
+      updateNodeState(nodeId, {
+        status: 'failed',
+        error: error.data?.message || error.message || '执行失败',
+      })
     }
   }
 
-  // 执行整个工作流（拓扑排序后依次执行）
-  async function executeWorkflow(nodes: Node[], edges: Edge[]): Promise<void> {
+  // 执行整个工作流（调用后端 API）
+  async function executeWorkflow(workflowId: number): Promise<void> {
     if (isExecuting.value) return
 
     isExecuting.value = true
     resetAllStates()
 
     try {
-      // 拓扑排序
-      const sortedNodes = topologicalSort(nodes, edges)
+      const result = await $fetch<{
+        success: boolean
+        data: BackendExecutionResult[]
+      }>(`/api/workflows/${workflowId}/run`, {
+        method: 'POST',
+      })
 
-      for (const node of sortedNodes) {
-        if (node.type === 'gen-image') {
-          await executeGenNode(node, nodes, edges, 'image')
-        } else if (node.type === 'gen-video') {
-          await executeGenNode(node, nodes, edges, 'video')
-        } else if (node.type === 'preview') {
-          updatePreviewNode(node, nodes, edges)
-        }
-        // input-image 和 text-node 不需要执行，数据已在节点中
+      if (!result.success) {
+        throw new Error('工作流执行失败')
       }
+
+      // 更新各节点状态并开始轮询
+      const pollPromises: Promise<void>[] = []
+
+      for (const nodeResult of result.data) {
+        updateNodeState(nodeResult.nodeId, {
+          status: nodeResult.status as NodeExecutionStatus,
+          taskId: nodeResult.taskId,
+          error: nodeResult.error,
+        })
+
+        // 如果有任务 ID，开始轮询
+        if (nodeResult.taskId && nodeResult.status === 'processing') {
+          pollPromises.push(pollTaskStatus(nodeResult.nodeId, nodeResult.taskId))
+        }
+      }
+
+      // 等待所有任务完成
+      await Promise.all(pollPromises)
+    } catch (error: any) {
+      console.error('工作流执行失败:', error)
     } finally {
       isExecuting.value = false
     }
-  }
-
-  // 执行单个节点（不执行上下游）
-  async function executeSingleNode(
-    node: Node,
-    nodes: Node[],
-    edges: Edge[]
-  ): Promise<void> {
-    if (node.type === 'gen-image') {
-      await executeGenNode(node, nodes, edges, 'image')
-    } else if (node.type === 'gen-video') {
-      await executeGenNode(node, nodes, edges, 'video')
-    }
-  }
-
-  // 拓扑排序
-  function topologicalSort(nodes: Node[], edges: Edge[]): Node[] {
-    const inDegree = new Map<string, number>()
-    const adjacency = new Map<string, string[]>()
-
-    // 初始化
-    for (const node of nodes) {
-      inDegree.set(node.id, 0)
-      adjacency.set(node.id, [])
-    }
-
-    // 构建图
-    for (const edge of edges) {
-      const targets = adjacency.get(edge.source) || []
-      targets.push(edge.target)
-      adjacency.set(edge.source, targets)
-
-      inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1)
-    }
-
-    // BFS
-    const queue: string[] = []
-    const result: Node[] = []
-
-    for (const [nodeId, degree] of inDegree) {
-      if (degree === 0) {
-        queue.push(nodeId)
-      }
-    }
-
-    while (queue.length > 0) {
-      const nodeId = queue.shift()!
-      const node = nodes.find(n => n.id === nodeId)
-      if (node) {
-        result.push(node)
-      }
-
-      for (const targetId of adjacency.get(nodeId) || []) {
-        const newDegree = (inDegree.get(targetId) || 1) - 1
-        inDegree.set(targetId, newDegree)
-        if (newDegree === 0) {
-          queue.push(targetId)
-        }
-      }
-    }
-
-    return result
   }
 
   // 清理
@@ -319,7 +207,6 @@ export function useWorkflowExecution() {
     resetAllStates,
     executeWorkflow,
     executeSingleNode,
-    getNodeInputs,
     cleanup,
   }
 }
