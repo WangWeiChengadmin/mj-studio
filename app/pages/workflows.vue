@@ -154,6 +154,16 @@ function formatTime(dateStr: string) {
 
 <template>
   <div class="max-w-6xl mx-auto px-6 py-8">
+    <!-- 预览警告 -->
+    <UAlert
+      class="mb-6"
+      color="warning"
+      variant="subtle"
+      icon="i-heroicons-exclamation-triangle"
+      title="功能预览"
+      description="工作流功能处于预览阶段，暂停开发中。如有好的想法或建议，欢迎反馈！"
+    />
+
     <!-- 标题 -->
     <div class="flex items-center justify-between mb-8">
       <div>
