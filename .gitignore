@@ -5,6 +5,8 @@ node_modules/
 .nuxt/
 .output/
 dist/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 
 # 环境变量
 .env

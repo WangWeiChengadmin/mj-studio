@@ -4,12 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
-    "build": "nuxt build",
+    "build": "pnpm build:docs && nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "docs:dev": "vitepress dev docs --port 4173",
+    "docs:build": "vitepress build docs",
+    "build:docs": "vitepress build docs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:shared": "vitest run tests/shared.test.ts",
@@ -37,6 +40,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "drizzle-kit": "^0.31.8",
     "typescript": "^5.9.3",
+    "vitepress": "^1.6.4",
     "vitest": "^4.0.15"
   },
   "pnpm": {

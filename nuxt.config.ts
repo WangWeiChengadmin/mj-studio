@@ -62,6 +62,16 @@ export default defineNuxtConfig({
     // JWT 密钥从环境变量读取
   },
 
+  // Nitro 配置：提供 VitePress 构建的静态文件
+  nitro: {
+    publicAssets: [
+      {
+        dir: 'docs/.vitepress/dist',
+        baseURL: '/help',
+      },
+    ],
+  },
+
   // Vite 配置：HMR 端口和远程访问
   vite: {
     server: {
