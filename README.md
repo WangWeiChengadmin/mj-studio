@@ -179,7 +179,7 @@ server {
 ## 文档
 
 - [**CLAUDE.md**](CLAUDE.md) - 开发指南：目录结构、API 格式、日志系统、开发流程
-- [**docs/DESIGN-SYSTEM.md**](docs/DESIGN-SYSTEM.md) - UI 设计系统：颜色、圆角、间距、动效规范
+- [**docs/设计系统规范.md**](docs/设计系统规范.md) - UI 设计系统：颜色、圆角、间距、动效规范
 - [**docs/对话功能需求文档.md**](docs/对话功能需求文档.md) - 对话模块完整需求
 - [**docs/流式输出系统设计和实现规范.md**](docs/流式输出系统设计和实现规范.md) - SSE 流式输出架构
 - [**docs/对话压缩逻辑.md**](docs/对话压缩逻辑.md) - 长对话压缩机制
@@ -187,3 +187,4 @@ server {
 - [**docs/日志规范需求.md**](docs/日志规范需求.md) - API 请求日志系统
 - [**docs/嵌入式绘图组件设计.md**](docs/嵌入式绘图组件设计.md) - 对话中嵌入绘图组件
 - [**docs/视频模型开发指南.md**](docs/视频模型开发指南.md) - 添加新视频模型的开发指南
+- [**docs/ComfyUI集成指南.md**](docs/ComfyUI集成指南.md) - ComfyUI 自定义节点集成指南

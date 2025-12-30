@@ -492,7 +492,7 @@ pnpm drizzle-kit generate --custom --name=my-migration
 
 ## UI 组件规范
 
-本项目使用 **Nuxt UI 4**，设计风格基于 Fluent 2。详细规范见 [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md)。
+本项目使用 **Nuxt UI 4**，设计风格基于 Fluent 2。详细规范见 [docs/设计系统规范.md](docs/设计系统规范.md)。
 
 ### 核心原则
 
