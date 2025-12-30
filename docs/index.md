@@ -7,8 +7,8 @@ hero:
   tagline: 轻量级 AI 绘图、视频生成与对话一站式体验
   actions:
     - theme: brand
-      text: 快速开始
-      link: /guide/getting-started
+      text: 常见问题
+      link: /常见问题
     - theme: alt
       text: 返回应用
       link: /
@@ -16,7 +16,7 @@ hero:
 features:
   - icon: 🎨
     title: AI 绘图
-    details: 支持 Midjourney、DALL-E、Gemini、Flux 等多种模型
+    details: 支持 Midjourney、DALL-E、Gemini、Flux、豆包等多种模型
   - icon: 🎬
     title: AI 视频
     details: 支持即梦、Veo、Sora、Grok Video 等视频生成模型

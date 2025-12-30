@@ -1,15 +1,15 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: 'MJ-Studio 帮助中心',
-  description: '多模型 AI 工作台使用指南',
+  title: 'MJ-Studio 文档',
+  description: '多模型 AI 工作台文档中心',
   base: '/help/',
   lang: 'zh-CN',
 
   // 输出到 .vitepress/dist 目录（Nuxt 通过 publicAssets 引用）
   outDir: '.vitepress/dist',
 
-  // 忽略死链接（旧文档中可能有过时的链接）
+  // 忽略死链接
   ignoreDeadLinks: true,
 
   head: [
@@ -22,45 +22,58 @@ export default defineConfig({
 
     nav: [
       { text: '首页', link: '/' },
-      { text: '快速开始', link: '/guide/getting-started' },
+      { text: '常见问题', link: '/常见问题' },
       { text: '返回应用', link: 'javascript:window.location.href="/"' },
     ],
 
     sidebar: [
       {
-        text: '入门',
+        text: '帮助中心',
         items: [
-          { text: '快速开始', link: '/guide/getting-started' },
-          { text: '配置上游', link: '/guide/upstream' },
+          { text: '常见问题', link: '/常见问题' },
         ],
       },
       {
-        text: '绘图模块',
+        text: '功能模块',
         items: [
-          { text: '基本使用', link: '/studio/basic' },
-          { text: '支持的模型', link: '/studio/models' },
-          { text: '参考图功能', link: '/studio/reference-image' },
+          { text: '对话功能', link: '/对话功能需求文档' },
+          { text: '嵌入式绘图', link: '/嵌入式绘图组件设计' },
+          { text: '流式输出', link: '/流式输出系统设计和实现规范' },
         ],
       },
       {
         text: '视频模块',
         items: [
-          { text: '基本使用', link: '/video/basic' },
-          { text: '支持的模型', link: '/video/models' },
+          { text: '视频模型开发指南', link: '/视频模型开发指南' },
+          { text: '视频模型调研', link: '/视频模型集成需求调研' },
         ],
       },
       {
-        text: '对话模块',
+        text: '工作流',
         items: [
-          { text: '基本使用', link: '/chat/basic' },
-          { text: '助手管理', link: '/chat/assistants' },
-          { text: '嵌入式绘图', link: '/chat/embedded-drawing' },
+          { text: '画布工作流设计', link: '/画布工作流设计' },
+          { text: '节点类型系统', link: '/工作流节点类型系统' },
+          { text: '执行系统', link: '/工作流执行系统' },
+          { text: 'ComfyUI 集成', link: '/ComfyUI集成指南' },
         ],
       },
       {
-        text: '常见问题',
+        text: '设计规范',
         items: [
-          { text: 'FAQ', link: '/faq' },
+          { text: '设计系统', link: '/设计系统规范' },
+          { text: '任务卡片组件', link: '/任务卡片组件设计文档' },
+          { text: '模型选择器', link: '/模型选择器组件设计文档' },
+          { text: '日志规范', link: '/日志规范需求' },
+          { text: '错误规范', link: '/绘图任务错误规范' },
+        ],
+      },
+      {
+        text: '架构文档',
+        items: [
+          { text: '模型参数架构 RFC', link: '/RFC-模型参数架构重构' },
+          { text: 'ImageForm 参数方案', link: '/ImageForm模型参数开发方案' },
+          { text: '任务多图支持', link: '/任务多图支持设计' },
+          { text: '对话压缩逻辑', link: '/对话压缩逻辑' },
         ],
       },
     ],

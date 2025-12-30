@@ -106,9 +106,9 @@ defineExpose({
         <NuxtLink to="/workflow" class="text-(--ui-text-muted) hover:text-(--ui-primary) transition-colors" title="工作流编排">
           <UIcon name="i-heroicons-square-3-stack-3d" class="w-5 h-5" />
         </NuxtLink>
-        <NuxtLink to="/faq" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors" title="帮助中心">
+        <a href="/help/" class="text-(--ui-text-muted) hover:text-(--ui-text) transition-colors" title="帮助中心">
           <UIcon name="i-heroicons-question-mark-circle" class="w-5 h-5" />
-        </NuxtLink>
+        </a>
       </div>
     </div>
 

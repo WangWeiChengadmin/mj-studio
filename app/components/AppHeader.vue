@@ -44,7 +44,7 @@ const navItems = [
   { label: '创作', to: '/studio', icon: 'i-heroicons-paint-brush' },
   { label: '工作流', to: '/workflows', icon: 'i-heroicons-square-3-stack-3d' },
   { label: '对话', to: '/chat', icon: 'i-heroicons-chat-bubble-left-right' },
-  { label: '帮助', to: '/faq', icon: 'i-heroicons-question-mark-circle' },
+  { label: '帮助', to: '/help/', icon: 'i-heroicons-question-mark-circle', external: true },
   { label: '设置', to: '/settings', icon: 'i-heroicons-cog-6-tooth' },
 ]
 
@@ -77,20 +77,24 @@ function handleLogout() {
         <!-- 导航链接（已登录且 showNav 时显示，客户端渲染避免 hydration 不匹配） -->
         <ClientOnly>
           <template v-if="loggedIn && showNav !== false">
-            <NuxtLink
-              v-for="item in navItems"
-              :key="item.to"
-              :to="item.to"
-            >
-              <UButton
-                variant="ghost"
-                size="sm"
-                :class="{ 'bg-(--ui-primary)/10 text-(--ui-primary)': route.path.startsWith(item.to) }"
-              >
-                <UIcon :name="item.icon" class="w-4 h-4 md:mr-1" />
-                <span class="hidden md:inline">{{ item.label }}</span>
-              </UButton>
-            </NuxtLink>
+            <template v-for="item in navItems" :key="item.to">
+              <a v-if="item.external" :href="item.to">
+                <UButton variant="ghost" size="sm">
+                  <UIcon :name="item.icon" class="w-4 h-4 md:mr-1" />
+                  <span class="hidden md:inline">{{ item.label }}</span>
+                </UButton>
+              </a>
+              <NuxtLink v-else :to="item.to">
+                <UButton
+                  variant="ghost"
+                  size="sm"
+                  :class="{ 'bg-(--ui-primary)/10 text-(--ui-primary)': route.path.startsWith(item.to) }"
+                >
+                  <UIcon :name="item.icon" class="w-4 h-4 md:mr-1" />
+                  <span class="hidden md:inline">{{ item.label }}</span>
+                </UButton>
+              </NuxtLink>
+            </template>
           </template>
         </ClientOnly>
 
