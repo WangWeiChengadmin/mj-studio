@@ -31,8 +31,20 @@ jobs:
       - name: Build Nuxt
         run: pnpm nuxt build
 
+      - name: Verify .output exists
+        run: |
+          echo "Checking .output directory..."
+          ls -la .output || echo ".output not found in root"
+          ls -la .output/server || echo ".output/server not found"
+          ls -la node_modules/.cache/nuxt/.output 2>/dev/null || echo "Not in cache either"
+
       - name: Build Electron (no publish)
-        run: npx electron-builder --publish never
+        run: npx electron-builder --publish never --debug
+
+      - name: Verify packaged content
+        run: |
+          echo "Checking dist-electron contents..."
+          ls -la dist-electron/mac-arm64/MJ-Studio.app/Contents/Resources/ || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
