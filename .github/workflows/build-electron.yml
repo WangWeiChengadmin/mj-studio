@@ -28,8 +28,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build Electron
-        run: pnpm electron:build
+      - name: Build Nuxt
+        run: pnpm nuxt build
+
+      - name: Build Electron (no publish)
+        run: npx electron-builder --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -58,8 +61,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build Electron
-        run: pnpm electron:build
+      - name: Build Nuxt
+        run: pnpm nuxt build
+
+      - name: Build Electron (no publish)
+        run: npx electron-builder --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
