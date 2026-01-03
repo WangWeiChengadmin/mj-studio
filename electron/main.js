@@ -129,12 +129,19 @@ async function startNuxtNitroServer() {
   })
 
   // 捕获输出用于调试
+  const tailText = (text, maxChars = 8000) => {
+    if (!text) return ''
+    if (text.length <= maxChars) return text
+    return `... (truncated, showing last ${maxChars} chars)\n` + text.slice(-maxChars)
+  }
   let stderr = ''
   serverProcess.stdout?.on('data', (data) => {
     console.log('[Nitro]', data.toString())
   })
   serverProcess.stderr?.on('data', (data) => {
     stderr += data.toString()
+    // 防止长时间运行导致日志无限增长
+    if (stderr.length > 200_000) stderr = stderr.slice(-200_000)
     console.error('[Nitro]', data.toString())
   })
 
@@ -145,7 +152,7 @@ async function startNuxtNitroServer() {
   serverProcess.on('exit', (code) => {
     if (code !== 0 && code !== null) {
       console.error(`[Nitro] Process exited with code ${code}`)
-      dialog.showErrorBox('服务器启动失败', stderr || `Exit code: ${code}`)
+      dialog.showErrorBox('服务器启动失败', tailText(stderr) || `Exit code: ${code}`)
     }
   })
 
