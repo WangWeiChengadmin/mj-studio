@@ -93,7 +93,9 @@ async function startNuxtNitroServer() {
       NITRO_PORT: String(port),
     },
     cwd: resourcesPath,
-    stdio: 'pipe',
+    stdio: ['ignore', 'pipe', 'pipe'],  // stdin 忽略，stdout/stderr 管道
+    detached: false,
+    windowsHide: true,  // Windows 上隐藏控制台窗口
   })
 
   // 捕获错误输出用于调试
