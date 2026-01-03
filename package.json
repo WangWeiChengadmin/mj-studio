@@ -63,7 +63,11 @@
       "output": "dist-electron"
     },
     "files": [
-      ".output/**",
+      {
+        "from": ".output",
+        "to": ".output",
+        "filter": ["**/*"]
+      },
       "electron/**",
       "node_modules/**",
       "package.json",
