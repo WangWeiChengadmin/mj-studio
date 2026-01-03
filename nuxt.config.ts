@@ -25,6 +25,9 @@ export default defineNuxtConfig({
   // 明确指定 Nitro preset 为 node-server
   nitro: {
     preset: 'node-server',
+    output: {
+      dir: 'nuxt-output',  // 避免使用 .output，electron-builder 会忽略以 . 开头的目录
+    },
   },
 
   modules: ['@nuxt/ui'],

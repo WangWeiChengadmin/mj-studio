@@ -1,0 +1,1 @@
+import{f as s,S as n,q as o,c as a,b as c,o as r,k as i}from"./DZ_1_TWT.js";const _={class:"p-6 text-center"},l=s({__name:"index",setup(m){const e=n();return o(()=>{e.replace("/settings/upstreams")}),(p,u)=>{const t=i;return r(),a("div",_,[c(t,{name:"i-heroicons-arrow-path",class:"w-8 h-8 text-(--ui-text-dimmed) animate-spin"})])}}});export{l as default};

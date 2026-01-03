@@ -64,8 +64,8 @@
     },
     "extraResources": [
       {
-        "from": ".output",
-        "to": ".output",
+        "from": "nuxt-output",
+        "to": "nuxt-output",
         "filter": ["**/*"]
       },
       {

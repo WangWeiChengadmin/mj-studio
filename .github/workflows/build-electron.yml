@@ -33,21 +33,21 @@ jobs:
 
       - name: Verify .output exists
         run: |
-          echo "=== Checking .output directory ==="
-          if [ -d ".output" ]; then
-            echo "✅ .output exists"
-            ls -la .output/
-            echo "=== Checking .output/server ==="
-            if [ -f ".output/server/index.mjs" ]; then
+          echo "=== Checking nuxt-output directory ==="
+          if [ -d "nuxt-output" ]; then
+            echo "✅ nuxt-output exists"
+            ls -la nuxt-output/
+            echo "=== Checking nuxt-output/server ==="
+            if [ -f "nuxt-output/server/index.mjs" ]; then
               echo "✅ server/index.mjs exists"
-              ls -la .output/server/
+              ls -la nuxt-output/server/
             else
               echo "❌ server/index.mjs NOT FOUND!"
-              echo "Contents of .output/server/:"
-              ls -la .output/server/ || echo "server directory does not exist"
+              echo "Contents of nuxt-output/server/:"
+              ls -la nuxt-output/server/ || echo "server directory does not exist"
             fi
           else
-            echo "❌ .output directory NOT FOUND!"
+            echo "❌ nuxt-output directory NOT FOUND!"
             echo "Current directory contents:"
             ls -la
           fi
@@ -62,13 +62,13 @@ jobs:
           if [ -d "$RESOURCES_PATH" ]; then
             echo "✅ Resources directory exists"
             ls -la "$RESOURCES_PATH/"
-            echo "=== Checking .output in Resources ==="
-            if [ -f "$RESOURCES_PATH/.output/server/index.mjs" ]; then
-              echo "✅ .output/server/index.mjs exists in packaged app"
+            echo "=== Checking nuxt-output in Resources ==="
+            if [ -f "$RESOURCES_PATH/nuxt-output/server/index.mjs" ]; then
+              echo "✅ nuxt-output/server/index.mjs exists in packaged app"
             else
-              echo "❌ .output/server/index.mjs NOT FOUND in packaged app!"
-              ls -la "$RESOURCES_PATH/.output/" 2>/dev/null || echo ".output not in Resources"
-              ls -la "$RESOURCES_PATH/.output/server/" 2>/dev/null || echo ".output/server not in Resources"
+              echo "❌ nuxt-output/server/index.mjs NOT FOUND in packaged app!"
+              ls -la "$RESOURCES_PATH/nuxt-output/" 2>/dev/null || echo "nuxt-output not in Resources"
+              ls -la "$RESOURCES_PATH/nuxt-output/server/" 2>/dev/null || echo "nuxt-output/server not in Resources"
             fi
           else
             echo "❌ Resources directory not found at expected path"

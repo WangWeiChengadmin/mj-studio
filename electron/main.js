@@ -67,9 +67,9 @@ async function startNuxtNitroServer() {
     return { url, stop: () => {} }
   }
 
-  // .output 在 extraResources 配置中，会被放到 Resources/.output 目录下
+  // nuxt-output 在 extraResources 配置中，会被放到 Resources/nuxt-output 目录下
   const resourcesPath = process.resourcesPath
-  const serverEntry = join(resourcesPath, '.output', 'server', 'index.mjs')
+  const serverEntry = join(resourcesPath, 'nuxt-output', 'server', 'index.mjs')
   if (!existsSync(serverEntry)) {
     throw new Error(`Missing Nuxt server entry: ${serverEntry}`)
   }

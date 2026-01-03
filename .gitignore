@@ -3,7 +3,7 @@ node_modules/
 
 # 构建输出
 .nuxt/
-.output/
+nuxt-output/
 dist/
 public/help/
 docs/.vitepress/cache/
