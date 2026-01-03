@@ -1,8 +1,0 @@
-const MessageList_vue_vue_type_style_index_0_scoped_3f657e47_lang = ".loading-dot[data-v-3f657e47]{animation:loading-bounce-3f657e47 1.2s ease-in-out infinite}@keyframes loading-bounce-3f657e47{0%,60%,to{opacity:.4;transform:translateY(0)}30%{opacity:1;transform:translateY(-4px)}}.markdown-content[data-v-3f657e47],.markdown-content[data-v-3f657e47] pre{max-width:100%;overflow-x:auto}.user-message-content[data-v-3f657e47] .markdown-content{color:#fff}.user-message-content[data-v-3f657e47] .markdown-content pre{background:#ffffff26}.user-message-content[data-v-3f657e47] .markdown-content code:not(pre code){background:#fff3;color:#fff}.user-message-content[data-v-3f657e47] .markdown-content a{color:#fff;text-decoration:underline}.user-message-content[data-v-3f657e47] .markdown-content blockquote{border-left-color:#ffffff80;color:#ffffffe6}.user-message-content[data-v-3f657e47] .markdown-content table td,.user-message-content[data-v-3f657e47] .markdown-content table th,.user-message-content[data-v-3f657e47] .markdown-content hr{border-color:#ffffff4d}";
-
-const MessageListStyles_BszyFZtQ = [
-  MessageList_vue_vue_type_style_index_0_scoped_3f657e47_lang
-];
-
-export { MessageListStyles_BszyFZtQ as default };
-//# sourceMappingURL=MessageList-styles.BszyFZtQ.mjs.map
