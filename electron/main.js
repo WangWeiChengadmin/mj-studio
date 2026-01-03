@@ -67,9 +67,9 @@ async function startNuxtNitroServer() {
     return { url, stop: () => {} }
   }
 
-  // .output 在 files 配置中，会被放到 app/ 目录下
-  const appPath = app.getAppPath()
-  const serverEntry = join(appPath, '.output', 'server', 'index.mjs')
+  // .output 在 extraResources 配置中，会被放到 Resources/.output 目录下
+  const resourcesPath = process.resourcesPath
+  const serverEntry = join(resourcesPath, '.output', 'server', 'index.mjs')
   if (!existsSync(serverEntry)) {
     throw new Error(`Missing Nuxt server entry: ${serverEntry}`)
   }
@@ -82,7 +82,7 @@ async function startNuxtNitroServer() {
       PORT: String(port),
       NITRO_PORT: String(port),
     },
-    cwd: appPath,
+    cwd: resourcesPath,
     stdio: 'pipe',
   })
 
