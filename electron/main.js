@@ -6,6 +6,14 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 
+// 单实例锁定 - 防止多个实例同时运行
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  // 另一个实例已经在运行，退出当前实例
+  app.quit()
+}
+
 function getUserDataPath() {
   return app.getPath('userData')
 }
@@ -56,6 +64,7 @@ async function waitForServer(url, timeoutMs = 30_000) {
 
 let serverProcess = null
 let serverUrl = 'http://127.0.0.1:3000'
+let mainWindow = null
 
 async function startNuxtNitroServer() {
   const host = '127.0.0.1'
@@ -74,9 +83,10 @@ async function startNuxtNitroServer() {
     throw new Error(`Missing Nuxt server entry: ${serverEntry}`)
   }
 
-  serverProcess = spawn(process.execPath, ['--run-as-node', serverEntry], {
+  serverProcess = spawn(process.execPath, [serverEntry], {
     env: {
       ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',  // 使用环境变量而非命令行参数，更可靠
       HOST: host,
       NITRO_HOST: host,
       PORT: String(port),
@@ -156,7 +166,19 @@ function createMainWindow(url) {
   return win
 }
 
+// 处理第二实例尝试启动时的情况
+app.on('second-instance', () => {
+  // 聚焦到已有窗口
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  }
+})
+
 app.whenReady().then(async () => {
+  // 如果没有获得锁，前面已经调用 app.quit()，这里不会执行
+  if (!gotTheLock) return
+
   const userDataPath = getUserDataPath()
   process.env.MJ_DATA_PATH = userDataPath
   process.env.MJ_UPLOADS_PATH = resolveUploadsPath(userDataPath)
@@ -165,7 +187,12 @@ app.whenReady().then(async () => {
 
   try {
     const { url, stop } = await startNuxtNitroServer()
-    createMainWindow(url)
+    mainWindow = createMainWindow(url)
+
+    // 窗口关闭时清理引用
+    mainWindow.on('closed', () => {
+      mainWindow = null
+    })
 
     app.on('before-quit', () => stop())
   } catch (error) {
@@ -180,7 +207,10 @@ app.on('window-all-closed', () => {
 })
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createMainWindow(serverUrl)
+  if (mainWindow === null) {
+    mainWindow = createMainWindow(serverUrl)
+    mainWindow.on('closed', () => {
+      mainWindow = null
+    })
   }
 })
