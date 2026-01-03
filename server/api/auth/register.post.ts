@@ -51,11 +51,19 @@ export default defineEventHandler(async (event) => {
   })
 
   // 生成 JWT token
-  const token = await signJwt({
-    userId: user.id,
-    email: user.email,
-    name: user.name,
-  })
+  let token: string
+  try {
+    token = await signJwt({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    })
+  } catch (error: any) {
+    throw createError({
+      statusCode: 500,
+      message: error?.message || '生成注册凭证失败',
+    })
+  }
 
   return {
     success: true,

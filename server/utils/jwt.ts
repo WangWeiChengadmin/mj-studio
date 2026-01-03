@@ -1,6 +1,9 @@
 // JWT 工具函数
 import { SignJWT, jwtVerify } from 'jose'
 import type { H3Event } from 'h3'
+import { randomBytes } from 'crypto'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { dirname, join } from 'path'
 
 export interface JwtPayload {
   userId: number
@@ -8,12 +11,40 @@ export interface JwtPayload {
   name: string | null
 }
 
+function resolveJwtSecretFilePath(): string | null {
+  const dataRoot = process.env.MJ_DATA_PATH
+  if (!dataRoot) return null
+  return join(dataRoot, 'data', 'jwt-secret.txt')
+}
+
+function isValidSecret(secret: string | undefined | null): secret is string {
+  return typeof secret === 'string' && secret.length >= 32
+}
+
+function getOrCreateLocalJwtSecret(): string | null {
+  const secretPath = resolveJwtSecretFilePath()
+  if (!secretPath) return null
+
+  try {
+    if (existsSync(secretPath)) {
+      const secret = readFileSync(secretPath, 'utf-8').trim()
+      if (isValidSecret(secret)) return secret
+    }
+
+    mkdirSync(dirname(secretPath), { recursive: true })
+    const generated = randomBytes(32).toString('hex') // 64 chars
+    writeFileSync(secretPath, generated, { encoding: 'utf-8', mode: 0o600 })
+    return generated
+  } catch {
+    return null
+  }
+}
+
 // 获取 JWT 密钥（从环境变量读取）
 function getJwtSecret(): Uint8Array {
-  const secret = process.env.NUXT_JWT_SECRET || process.env.NUXT_SESSION_PASSWORD
-  if (!secret || secret.length < 32) {
-    throw new Error('NUXT_JWT_SECRET 环境变量未设置或长度不足32位')
-  }
+  const envSecret = process.env.NUXT_JWT_SECRET || process.env.NUXT_SESSION_PASSWORD
+  const secret = isValidSecret(envSecret) ? envSecret : getOrCreateLocalJwtSecret()
+  if (!secret) throw new Error('JWT 密钥不可用：请设置 NUXT_JWT_SECRET（>=32位）或确保 MJ_DATA_PATH 可写')
   return new TextEncoder().encode(secret)
 }
 
