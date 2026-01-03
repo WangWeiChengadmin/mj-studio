@@ -64,11 +64,6 @@
     },
     "extraResources": [
       {
-        "from": "nuxt-output",
-        "to": "nuxt-output",
-        "filter": ["**/*"]
-      },
-      {
         "from": "server/database/migrations",
         "to": "migrations",
         "filter": ["**/*"]
@@ -76,6 +71,8 @@
     ],
     "files": [
       "electron/**",
+      "nuxt-output/**",
+      "!nuxt-output/server/node_modules/**",
       "node_modules/**",
       "package.json"
     ],

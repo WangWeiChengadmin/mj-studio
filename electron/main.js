@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
@@ -69,44 +69,6 @@ let serverProcess = null
 let serverUrl = 'http://127.0.0.1:3000'
 let mainWindow = null
 
-function resolveAppNodeModulesPath() {
-  const appPath = app.getAppPath()
-  const candidates = [
-    join(appPath, 'node_modules'),
-    join(process.resourcesPath, 'app', 'node_modules'),
-    join(process.resourcesPath, 'app.asar.unpacked', 'node_modules'),
-  ]
-  return candidates.find(p => existsSync(p)) || candidates[0]
-}
-
-function syncNativeAddonFromAppToNitroServer(addonName) {
-  if (!app.isPackaged) return
-
-  const resourcesPath = process.resourcesPath
-  const appNodeModules = resolveAppNodeModulesPath()
-  const serverNodeModules = join(resourcesPath, 'nuxt-output', 'server', 'node_modules')
-
-  const fromReleaseDir = join(appNodeModules, addonName, 'build', 'Release')
-  const toReleaseDir = join(serverNodeModules, addonName, 'build', 'Release')
-
-  if (!existsSync(fromReleaseDir) || !existsSync(toReleaseDir)) return
-
-  const nodeBinaries = readdirSync(fromReleaseDir).filter(name => name.endsWith('.node'))
-  if (!nodeBinaries.length) return
-
-  try {
-    for (const fileName of nodeBinaries) {
-      const from = join(fromReleaseDir, fileName)
-      const to = join(toReleaseDir, fileName)
-      mkdirSync(dirname(to), { recursive: true })
-      copyFileSync(from, to)
-    }
-    console.log(`[Main] Synced native addon for Nitro: ${addonName} (${nodeBinaries.join(', ')})`)
-  } catch (error) {
-    console.warn(`[Main] Failed to sync native addon for Nitro: ${addonName}`, error)
-  }
-}
-
 async function startNuxtNitroServer() {
   const host = '127.0.0.1'
   const port = Number(process.env.PORT || 3000)
@@ -122,9 +84,11 @@ async function startNuxtNitroServer() {
     return { url, stop: () => {} }
   }
 
-  // nuxt-output 在 extraResources 配置中，会被放到 Resources/nuxt-output 目录下
+  // nuxt-output 会被打包进 app 目录（与 node_modules 同级），避免 ESM 无法走 NODE_PATH
+  // 并避免 Nitro 自带的 server/node_modules 携带 “Node ABI” 的原生模块导致 Electron 运行崩溃。
   const resourcesPath = process.resourcesPath
-  const serverEntry = join(resourcesPath, 'nuxt-output', 'server', 'index.mjs')
+  const appPath = app.getAppPath()
+  const serverEntry = join(appPath, 'nuxt-output', 'server', 'index.mjs')
 
   console.log('[Main] Looking for server entry:', serverEntry)
   console.log('[Main] Server entry exists:', existsSync(serverEntry))
@@ -133,12 +97,6 @@ async function startNuxtNitroServer() {
     throw new Error(`Missing Nuxt server entry: ${serverEntry}`)
   }
 
-  // Nitro 的输出目录自带 server/node_modules，但其中的原生模块（如 better-sqlite3）
-  // 通常是按 “Node.js” ABI 编译的；而这里我们用 Electron 的 Node 运行 Nitro，
-  // 会导致子进程启动即崩（常见表现是控制台刷 `node:electron/js2c/node_init`）。
-  // 这里把已被 electron-builder rebuild 的原生二进制同步到 Nitro 的 node_modules。
-  syncNativeAddonFromAppToNitroServer('better-sqlite3')
-
   // 迁移文件在 Resources/migrations 目录
   const migrationsPath = join(resourcesPath, 'migrations')
   console.log('[Main] Migrations path:', migrationsPath)
@@ -146,8 +104,7 @@ async function startNuxtNitroServer() {
 
   // 主项目 node_modules 路径（包含已 rebuild 的原生模块如 better-sqlite3）
   // 打包后位于 app.asar 同级目录或 app 目录
-  const appPath = app.getAppPath()
-  const mainNodeModules = resolveAppNodeModulesPath()
+  const mainNodeModules = join(appPath, 'node_modules')
   console.log('[Main] App path:', appPath)
   console.log('[Main] Main node_modules:', mainNodeModules)
 
@@ -156,7 +113,7 @@ async function startNuxtNitroServer() {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',  // 使用环境变量而非命令行参数，更可靠
       ELECTRON_NO_ASAR: '1',  // 禁用 ASAR 模块，避免警告和冲突
-      // 设置 NODE_PATH 让子进程优先使用主项目的 node_modules（包含已 rebuild 的原生模块）
+      // 提供 NODE_PATH 兜底（CJS 场景可用；ESM 依赖主要依靠 app 目录的 node_modules）
       NODE_PATH: mainNodeModules,
       HOST: host,
       NITRO_HOST: host,
@@ -165,7 +122,7 @@ async function startNuxtNitroServer() {
       MJ_MIGRATIONS_PATH: migrationsPath,  // 告诉 Nitro 迁移文件路径
       MJ_DATA_PATH: process.env.MJ_DATA_PATH,  // 传递数据目录
     },
-    cwd: resourcesPath,
+    cwd: appPath,
     stdio: ['ignore', 'pipe', 'pipe'],  // stdin 忽略，stdout/stderr 管道
     detached: false,
     windowsHide: true,  // Windows 上隐藏控制台窗口
