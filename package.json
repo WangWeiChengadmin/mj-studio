@@ -58,6 +58,7 @@
   "build": {
     "appId": "com.mjstudio.desktop",
     "productName": "MJ-Studio",
+    "asar": false,
     "directories": {
       "output": "dist-electron"
     },
@@ -66,11 +67,6 @@
       "electron/**",
       "node_modules/**",
       "package.json",
-      "server/database/migrations/**"
-    ],
-    "asarUnpack": [
-      ".output/**",
-      "node_modules/better-sqlite3/**",
       "server/database/migrations/**"
     ],
     "mac": {
