@@ -100,11 +100,20 @@ async function startNuxtNitroServer() {
   console.log('[Main] Migrations path:', migrationsPath)
   console.log('[Main] Migrations exists:', existsSync(migrationsPath))
 
+  // 主项目 node_modules 路径（包含已 rebuild 的原生模块如 better-sqlite3）
+  // 打包后位于 app.asar 同级目录或 app 目录
+  const appPath = app.getAppPath()
+  const mainNodeModules = join(appPath, 'node_modules')
+  console.log('[Main] App path:', appPath)
+  console.log('[Main] Main node_modules:', mainNodeModules)
+
   serverProcess = spawn(process.execPath, [serverEntry], {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',  // 使用环境变量而非命令行参数，更可靠
       ELECTRON_NO_ASAR: '1',  // 禁用 ASAR 模块，避免警告和冲突
+      // 设置 NODE_PATH 让子进程优先使用主项目的 node_modules（包含已 rebuild 的原生模块）
+      NODE_PATH: mainNodeModules,
       HOST: host,
       NITRO_HOST: host,
       PORT: String(port),
