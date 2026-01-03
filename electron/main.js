@@ -104,6 +104,7 @@ async function startNuxtNitroServer() {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',  // 使用环境变量而非命令行参数，更可靠
+      ELECTRON_NO_ASAR: '1',  // 禁用 ASAR 模块，避免警告和冲突
       HOST: host,
       NITRO_HOST: host,
       PORT: String(port),
