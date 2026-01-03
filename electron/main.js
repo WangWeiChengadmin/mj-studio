@@ -10,6 +10,16 @@ function getUserDataPath() {
   return app.getPath('userData')
 }
 
+// 获取解包后的资源路径（asar 内的文件无法 spawn 执行）
+function getUnpackedPath() {
+  const appPath = app.getAppPath()
+  // 打包后 appPath 形如 .../app.asar，需要替换为 app.asar.unpacked
+  if (appPath.includes('app.asar')) {
+    return appPath.replace('app.asar', 'app.asar.unpacked')
+  }
+  return appPath
+}
+
 function getDbPath(userDataPath) {
   return join(userDataPath, 'data', 'mj-studio.db')
 }
@@ -67,7 +77,9 @@ async function startNuxtNitroServer() {
     return { url, stop: () => {} }
   }
 
-  const serverEntry = join(app.getAppPath(), '.output', 'server', 'index.mjs')
+  // 使用解包后的路径（asar 内的文件无法直接执行）
+  const unpackedPath = getUnpackedPath()
+  const serverEntry = join(unpackedPath, '.output', 'server', 'index.mjs')
   if (!existsSync(serverEntry)) {
     throw new Error(`Missing Nuxt server entry: ${serverEntry}`)
   }
@@ -80,7 +92,7 @@ async function startNuxtNitroServer() {
       PORT: String(port),
       NITRO_PORT: String(port),
     },
-    cwd: app.getAppPath(),
+    cwd: unpackedPath,
     stdio: 'inherit',
   })
 

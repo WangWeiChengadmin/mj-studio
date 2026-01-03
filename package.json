@@ -68,6 +68,11 @@
       "package.json",
       "server/database/migrations/**"
     ],
+    "asarUnpack": [
+      ".output/**",
+      "node_modules/better-sqlite3/**",
+      "server/database/migrations/**"
+    ],
     "mac": {
       "target": [
         "dmg"
