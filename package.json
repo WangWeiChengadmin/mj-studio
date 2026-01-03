@@ -1,5 +1,8 @@
 {
   "name": "mj-studio",
+  "version": "1.0.0",
+  "description": "Multi-model AI Studio for image/video generation and chat",
+  "author": "MJ-Studio",
   "private": true,
   "type": "module",
   "main": "electron/main.js",
