@@ -33,18 +33,48 @@ jobs:
 
       - name: Verify .output exists
         run: |
-          echo "Checking .output directory..."
-          ls -la .output || echo ".output not found in root"
-          ls -la .output/server || echo ".output/server not found"
-          ls -la node_modules/.cache/nuxt/.output 2>/dev/null || echo "Not in cache either"
+          echo "=== Checking .output directory ==="
+          if [ -d ".output" ]; then
+            echo "✅ .output exists"
+            ls -la .output/
+            echo "=== Checking .output/server ==="
+            if [ -f ".output/server/index.mjs" ]; then
+              echo "✅ server/index.mjs exists"
+              ls -la .output/server/
+            else
+              echo "❌ server/index.mjs NOT FOUND!"
+              echo "Contents of .output/server/:"
+              ls -la .output/server/ || echo "server directory does not exist"
+            fi
+          else
+            echo "❌ .output directory NOT FOUND!"
+            echo "Current directory contents:"
+            ls -la
+          fi
 
       - name: Build Electron (no publish)
         run: npx electron-builder --publish never
 
       - name: Verify packaged content
         run: |
-          echo "Checking dist-electron contents..."
-          ls -la dist-electron/mac-arm64/MJ-Studio.app/Contents/Resources/ || true
+          echo "=== Checking packaged app contents ==="
+          APP_PATH="dist-electron/mac-arm64/MJ-Studio.app/Contents/Resources/app"
+          if [ -d "$APP_PATH" ]; then
+            echo "✅ App directory exists"
+            ls -la "$APP_PATH/"
+            echo "=== Checking .output in packaged app ==="
+            if [ -f "$APP_PATH/.output/server/index.mjs" ]; then
+              echo "✅ .output/server/index.mjs exists in packaged app"
+            else
+              echo "❌ .output/server/index.mjs NOT FOUND in packaged app!"
+              ls -la "$APP_PATH/.output/" 2>/dev/null || echo ".output not in app"
+              ls -la "$APP_PATH/.output/server/" 2>/dev/null || echo ".output/server not in app"
+            fi
+          else
+            echo "❌ App directory not found at expected path"
+            echo "Checking dist-electron contents:"
+            find dist-electron -type d -name "*.app" 2>/dev/null || echo "No .app found"
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

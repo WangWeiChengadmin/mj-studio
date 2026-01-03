@@ -19,6 +19,14 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   future: { compatibilityVersion: 4 },
 
+  // 确保 SSR 模式，生成服务端入口
+  ssr: true,
+
+  // 明确指定 Nitro preset 为 node-server
+  nitro: {
+    preset: 'node-server',
+  },
+
   modules: ['@nuxt/ui'],
   css: [
     '~/assets/css/main.css',
