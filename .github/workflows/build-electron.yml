@@ -39,7 +39,7 @@ jobs:
           ls -la node_modules/.cache/nuxt/.output 2>/dev/null || echo "Not in cache either"
 
       - name: Build Electron (no publish)
-        run: npx electron-builder --publish never --debug
+        run: npx electron-builder --publish never
 
       - name: Verify packaged content
         run: |
