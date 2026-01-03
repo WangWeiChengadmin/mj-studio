@@ -67,9 +67,9 @@ async function startNuxtNitroServer() {
     return { url, stop: () => {} }
   }
 
-  // 禁用 asar 后直接使用 appPath
-  const appPath = app.getAppPath()
-  const serverEntry = join(appPath, '.output', 'server', 'index.mjs')
+  // extraResources 会把 .output 放到 resources 目录下
+  const resourcesPath = process.resourcesPath
+  const serverEntry = join(resourcesPath, '.output', 'server', 'index.mjs')
   if (!existsSync(serverEntry)) {
     throw new Error(`Missing Nuxt server entry: ${serverEntry}`)
   }
@@ -82,7 +82,7 @@ async function startNuxtNitroServer() {
       PORT: String(port),
       NITRO_PORT: String(port),
     },
-    cwd: appPath,
+    cwd: resourcesPath,
     stdio: 'pipe',
   })
 
