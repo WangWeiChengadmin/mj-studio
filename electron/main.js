@@ -12,6 +12,8 @@ const gotTheLock = app.requestSingleInstanceLock()
 if (!gotTheLock) {
   // 另一个实例已经在运行，退出当前实例
   app.quit()
+  // 立即退出，避免继续执行后续代码
+  process.exit(0)
 }
 
 function getUserDataPath() {
@@ -53,9 +55,10 @@ async function waitForServer(url, timeoutMs = 30_000) {
   while (Date.now() - start < timeoutMs) {
     try {
       const res = await fetch(url, { method: 'GET' })
-      if (res.ok) return
+      // 接受任意响应（包括 302/401/404/500），只要服务器有响应就说明已启动
+      if (res.status > 0) return
     } catch {
-      // ignore
+      // ignore - 连接失败继续重试
     }
     await delay(250)
   }
@@ -72,16 +75,30 @@ async function startNuxtNitroServer() {
   const url = `http://${host}:${port}`
   serverUrl = url
 
+  // 调试信息
+  console.log('[Main] app.isPackaged:', app.isPackaged)
+  console.log('[Main] process.resourcesPath:', process.resourcesPath)
+
   if (!app.isPackaged) {
+    console.log('[Main] Development mode, using external server')
     return { url, stop: () => {} }
   }
 
   // nuxt-output 在 extraResources 配置中，会被放到 Resources/nuxt-output 目录下
   const resourcesPath = process.resourcesPath
   const serverEntry = join(resourcesPath, 'nuxt-output', 'server', 'index.mjs')
+
+  console.log('[Main] Looking for server entry:', serverEntry)
+  console.log('[Main] Server entry exists:', existsSync(serverEntry))
+
   if (!existsSync(serverEntry)) {
     throw new Error(`Missing Nuxt server entry: ${serverEntry}`)
   }
+
+  // 迁移文件在 Resources/migrations 目录
+  const migrationsPath = join(resourcesPath, 'migrations')
+  console.log('[Main] Migrations path:', migrationsPath)
+  console.log('[Main] Migrations exists:', existsSync(migrationsPath))
 
   serverProcess = spawn(process.execPath, [serverEntry], {
     env: {
@@ -91,6 +108,8 @@ async function startNuxtNitroServer() {
       NITRO_HOST: host,
       PORT: String(port),
       NITRO_PORT: String(port),
+      MJ_MIGRATIONS_PATH: migrationsPath,  // 告诉 Nitro 迁移文件路径
+      MJ_DATA_PATH: process.env.MJ_DATA_PATH,  // 传递数据目录
     },
     cwd: resourcesPath,
     stdio: ['ignore', 'pipe', 'pipe'],  // stdin 忽略，stdout/stderr 管道
@@ -98,8 +117,11 @@ async function startNuxtNitroServer() {
     windowsHide: true,  // Windows 上隐藏控制台窗口
   })
 
-  // 捕获错误输出用于调试
+  // 捕获输出用于调试
   let stderr = ''
+  serverProcess.stdout?.on('data', (data) => {
+    console.log('[Nitro]', data.toString())
+  })
   serverProcess.stderr?.on('data', (data) => {
     stderr += data.toString()
     console.error('[Nitro]', data.toString())
@@ -199,6 +221,11 @@ app.whenReady().then(async () => {
     app.on('before-quit', () => stop())
   } catch (error) {
     console.error(error)
+    // 清理可能残留的子进程
+    if (serverProcess && !serverProcess.killed) {
+      serverProcess.kill()
+      serverProcess = null
+    }
     dialog.showErrorBox('MJ-Studio 启动失败', String(error?.message || error))
     app.quit()
   }
