@@ -63,17 +63,11 @@
       "output": "dist-electron"
     },
     "files": [
+      ".output/**",
       "electron/**",
       "node_modules/**",
       "package.json",
       "server/database/migrations/**"
-    ],
-    "extraResources": [
-      {
-        "from": ".output",
-        "to": ".output",
-        "filter": ["**/*"]
-      }
     ],
     "mac": {
       "target": [
