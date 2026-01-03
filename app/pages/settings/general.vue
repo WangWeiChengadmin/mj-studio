@@ -12,6 +12,7 @@ const form = reactive({
   compressKeepCount: 4,
   titleMaxLength: 30,
   suggestionsCount: 5,
+  imageSavePath: '',
   // 绘图设置
   aiOptimizeUpstreamId: 0,
   aiOptimizeAimodelId: 0,
@@ -24,6 +25,9 @@ const form = reactive({
 
 // 保存状态
 const isSaving = ref(false)
+const isStorageSaving = ref(false)
+const electronPaths = ref<{ userData: string; uploads: string } | null>(null)
+const isElectron = computed(() => import.meta.client && !!window.electronAPI)
 
 // 加载设置
 onMounted(async () => {
@@ -32,6 +36,14 @@ onMounted(async () => {
     loadUpstreams(),
   ])
   syncFormFromSettings()
+
+  if (window.electronAPI?.getPaths) {
+    try {
+      electronPaths.value = await window.electronAPI.getPaths()
+    } catch {
+      electronPaths.value = null
+    }
+  }
 })
 
 // 同步设置到表单
@@ -40,6 +52,7 @@ function syncFormFromSettings() {
   form.compressKeepCount = settings.value[USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT] ?? 4
   form.titleMaxLength = settings.value[USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH] ?? 30
   form.suggestionsCount = settings.value[USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT] ?? 5
+  form.imageSavePath = settings.value[USER_SETTING_KEYS.GENERAL_IMAGE_SAVE_PATH] ?? ''
   // 绘图设置
   form.aiOptimizeUpstreamId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID] ?? 0
   form.aiOptimizeAimodelId = settings.value[USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID] ?? 0
@@ -59,6 +72,7 @@ async function saveSettings() {
       [USER_SETTING_KEYS.GENERAL_COMPRESS_KEEP_COUNT]: form.compressKeepCount,
       [USER_SETTING_KEYS.GENERAL_TITLE_MAX_LENGTH]: form.titleMaxLength,
       [USER_SETTING_KEYS.GENERAL_SUGGESTIONS_COUNT]: form.suggestionsCount,
+      [USER_SETTING_KEYS.GENERAL_IMAGE_SAVE_PATH]: form.imageSavePath,
       // 绘图设置
       [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_UPSTREAM_ID]: form.aiOptimizeUpstreamId,
       [USER_SETTING_KEYS.DRAWING_AI_OPTIMIZE_AIMODEL_ID]: form.aiOptimizeAimodelId,
@@ -73,6 +87,39 @@ async function saveSettings() {
     toast.add({ title: '保存失败', description: error.message, color: 'error' })
   } finally {
     isSaving.value = false
+  }
+}
+
+async function selectImageSavePath() {
+  if (!window.electronAPI?.selectFolder) return
+
+  isStorageSaving.value = true
+  try {
+    const selected = await window.electronAPI.selectFolder()
+    if (!selected) return
+
+    form.imageSavePath = selected
+    await updateSettings({ [USER_SETTING_KEYS.GENERAL_IMAGE_SAVE_PATH]: selected })
+    toast.add({ title: '已保存', description: '重启应用后生效', color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: '设置失败', description: error.message, color: 'error' })
+  } finally {
+    isStorageSaving.value = false
+  }
+}
+
+async function resetImageSavePath() {
+  if (!window.electronAPI) return
+
+  isStorageSaving.value = true
+  try {
+    form.imageSavePath = ''
+    await updateSettings({ [USER_SETTING_KEYS.GENERAL_IMAGE_SAVE_PATH]: '' })
+    toast.add({ title: '已重置', description: '重启应用后生效', color: 'success' })
+  } catch (error: any) {
+    toast.add({ title: '重置失败', description: error.message, color: 'error' })
+  } finally {
+    isStorageSaving.value = false
   }
 }
 
@@ -188,6 +235,54 @@ const workbenchAimodelId = computed({
               v-model:aimodel-id="workbenchAimodelId"
             />
           </div>
+        </div>
+      </div>
+
+      <!-- 存储设置 -->
+      <div class="bg-(--ui-bg-elevated) rounded-lg p-6 border border-(--ui-border)">
+        <h3 class="text-base font-medium text-(--ui-text) mb-4">存储</h3>
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0">
+              <span class="text-(--ui-text)">图片保存路径</span>
+              <p class="text-xs text-(--ui-text-muted) mt-1 break-all">
+                <template v-if="form.imageSavePath">
+                  {{ form.imageSavePath }}
+                </template>
+                <template v-else-if="electronPaths?.uploads">
+                  {{ electronPaths.uploads }}（默认）
+                </template>
+                <template v-else>
+                  （默认）
+                </template>
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <UButton
+                size="xs"
+                variant="outline"
+                :loading="isStorageSaving"
+                :disabled="!isElectron"
+                @click="selectImageSavePath"
+              >
+                选择路径
+              </UButton>
+              <UButton
+                size="xs"
+                variant="outline"
+                color="neutral"
+                :loading="isStorageSaving"
+                :disabled="!isElectron || !form.imageSavePath"
+                @click="resetImageSavePath"
+              >
+                重置
+              </UButton>
+            </div>
+          </div>
+
+          <p class="text-xs text-(--ui-text-muted)">
+            修改后需重启应用生效
+          </p>
         </div>
       </div>
 

@@ -1,10 +1,45 @@
 // 文件存储服务 - 管理文件的下载、存储和访问
 import { createHash } from 'crypto'
 import { existsSync, mkdirSync, writeFileSync, readFileSync, statSync, createReadStream, type ReadStream } from 'fs'
-import { join } from 'path'
+import { join, resolve, basename } from 'path'
 
 // 文件存储目录
-const UPLOAD_DIR = join(process.cwd(), 'uploads')
+function getUploadDir(): string {
+  if (process.env.MJ_UPLOADS_PATH) {
+    return process.env.MJ_UPLOADS_PATH
+  }
+  return join(process.cwd(), 'uploads')
+}
+
+const UPLOAD_DIR = getUploadDir()
+
+// 验证文件名安全性（防止路径穿越）
+function validateFileName(fileName: string): string | null {
+  // 拒绝包含路径分隔符或 .. 的文件名
+  if (!fileName || fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+    return null
+  }
+  // 只取 basename 确保安全
+  const safeName = basename(fileName)
+  if (!safeName || safeName !== fileName) {
+    return null
+  }
+  return safeName
+}
+
+// 获取安全的文件路径
+function getSafeFilePath(fileName: string): string | null {
+  const safeName = validateFileName(fileName)
+  if (!safeName) return null
+
+  const filePath = join(UPLOAD_DIR, safeName)
+  // 确保解析后的路径仍在 UPLOAD_DIR 内
+  const resolved = resolve(filePath)
+  if (!resolved.startsWith(resolve(UPLOAD_DIR))) {
+    return null
+  }
+  return filePath
+}
 
 // 确保上传目录存在
 function ensureUploadDir() {
@@ -13,14 +48,25 @@ function ensureUploadDir() {
   }
 }
 
+// 验证并清理扩展名（防止扩展名注入）
+function sanitizeExtension(ext: string): string {
+  // 只允许字母数字，长度限制 10
+  const cleaned = ext.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (!cleaned || cleaned.length > 10) {
+    return 'bin'
+  }
+  return cleaned
+}
+
 // 生成唯一文件名
 function generateFileName(data: Buffer | string, ext: string): string {
+  const safeExt = sanitizeExtension(ext)
   const hash = createHash('md5')
     .update(typeof data === 'string' ? data : data)
     .digest('hex')
     .slice(0, 16)
   const timestamp = Date.now().toString(36)
-  return `${timestamp}-${hash}.${ext}`
+  return `${timestamp}-${hash}.${safeExt}`
 }
 
 // 从扩展名获取 MIME 类型
@@ -208,8 +254,8 @@ export function saveBase64File(base64Data: string, originalName?: string): SaveF
 // 读取文件
 export function readFile(fileName: string): { buffer: Buffer; mimeType: string; size: number } | null {
   try {
-    const filePath = join(UPLOAD_DIR, fileName)
-    if (!existsSync(filePath)) {
+    const filePath = getSafeFilePath(fileName)
+    if (!filePath || !existsSync(filePath)) {
       return null
     }
 
@@ -227,8 +273,8 @@ export function readFile(fileName: string): { buffer: Buffer; mimeType: string; 
 // 获取文件信息（不读取内容）
 export function getFileInfo(fileName: string): { mimeType: string; size: number; path: string } | null {
   try {
-    const filePath = join(UPLOAD_DIR, fileName)
-    if (!existsSync(filePath)) {
+    const filePath = getSafeFilePath(fileName)
+    if (!filePath || !existsSync(filePath)) {
       return null
     }
 
@@ -245,8 +291,8 @@ export function getFileInfo(fileName: string): { mimeType: string; size: number;
 // 创建文件流（用于 Range 请求）
 export function createFileStream(fileName: string, start?: number, end?: number): ReadStream | null {
   try {
-    const filePath = join(UPLOAD_DIR, fileName)
-    if (!existsSync(filePath)) {
+    const filePath = getSafeFilePath(fileName)
+    if (!filePath || !existsSync(filePath)) {
       return null
     }
 
@@ -271,7 +317,8 @@ export function readFileAsBase64(fileName: string): string | null {
 
 // 检查文件是否存在
 export function fileExists(fileName: string): boolean {
-  return existsSync(join(UPLOAD_DIR, fileName))
+  const filePath = getSafeFilePath(fileName)
+  return filePath ? existsSync(filePath) : false
 }
 
 // 获取文件的本地 URL 路径
